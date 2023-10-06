@@ -9,12 +9,12 @@ import {
 } from '../_generated/server.js';
 import { asyncMap } from './utils.js';
 import { EntryOfType, Memories, Memory, MemoryOfType, MemoryType } from '../schema.js';
-import { chatCompletion } from './openai.js';
 import { clientMessageMapper } from '../chat.js';
 import { pineconeAvailable, queryVectors, upsertVectors } from './pinecone.js';
 import { chatHistoryFromMessages } from '../conversation.js';
 import { MEMORY_ACCESS_THROTTLE } from '../config.js';
 import { fetchEmbeddingBatchWithCache } from './cached_llm.js';
+import { chatCompletionWithLogging } from './chat_completion';
 
 const { embeddingId, lastAccess, ...MemoryWithoutEmbeddingId } = Memories.fields;
 const NewMemory = { ...MemoryWithoutEmbeddingId, importance: v.optional(v.number()) };
@@ -39,6 +39,7 @@ export interface MemoryDB {
     playerId: Id<'players'>,
     playerIdentity: string,
     conversationId: Id<'conversations'>,
+    audience: Id<'players'>[],
   ): Promise<boolean>;
   reflectOnMemories(playerId: Id<'players'>, name: string): Promise<void>;
 }
@@ -97,7 +98,11 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
 
         if (memory.importance === undefined) {
           // TODO: make a better prompt based on the user's memories
-          const { content: importanceRaw } = await chatCompletion({
+          const { content: importanceRaw } = await chatCompletionWithLogging({
+            character_id: memory.playerId,
+            target_char_ids: [], // TODO: add target char ids by passing relevant characters
+            call_type: 'walkAway',
+            game_id: 'the_nexus', // TODO generate unique game ids and pass them in
             messages: [
               { role: 'user', content: memory.description },
               {
@@ -138,14 +143,23 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
       }
     },
 
-    async rememberConversation(playerName, playerId, playerIdentity, conversationId) {
+    async rememberConversation(playerName, playerId, playerIdentity, conversationId, audienceIds) {
       const messages = await ctx.runQuery(internal.lib.memory.getRecentMessages, {
         playerId,
         conversationId,
       });
+      const latestPlan = await ctx.runQuery(internal.lib.memory.getLatestPlan, { playerId });
       if (!messages.length) return false;
-      const { content: description } = await chatCompletion({
+      const { content: description } = await chatCompletionWithLogging({
+        character_id: playerId,
+        target_char_ids: audienceIds,
+        call_type: 'rememberConversation',
+        game_id: 'the_nexus', // TODO generate unique game ids and pass them in
         messages: [
+          {
+            role: 'user',
+            content: `You are ${playerName}, and this is your current plan: ${latestPlan?.description}`,
+          },
           {
             role: 'user',
             content: `The following are messages. You are ${playerName}, and ${playerIdentity}
@@ -157,7 +171,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
             content: `Summary:`,
           },
         ],
-        max_tokens: 500,
+        max_tokens: 500
       });
       await this.addMemories([
         {
@@ -181,23 +195,30 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
       );
 
       // should only reflect if lastest 100 items have importance score of >500
+      // reducing to just 100 importance
       const sumOfImportanceScore = memories
         .filter((m) => m._creationTime > (lastReflectionTs ?? 0))
         .reduce((acc, curr) => acc + curr.importance, 0);
-      const shouldReflect = sumOfImportanceScore > 500;
+      const shouldReflect = sumOfImportanceScore > 100;
 
       if (shouldReflect) {
         console.debug('sum of importance score = ', sumOfImportanceScore);
         console.debug('Reflecting...');
-        let prompt = `[no prose]\n [Output only JSON] \nYou are ${name}, statements about you:\n`;
+        const latestPlan = await ctx.runQuery(internal.lib.memory.getLatestPlan, { playerId });
+        let prompt = `This is your current plan: ${latestPlan?.description}\n`;
+        prompt += `[no prose]\n [Output only JSON] \nYou are ${name}, statements about you:\n`;
         memories.forEach((m, idx) => {
           prompt += `Statement ${idx}: ${m.description}\n`;
         });
-        prompt += `What 3 high-level insights can you infer from the above statements?
+        prompt += `What 3 high-level insights related to your plan can you infer from the above statements?
         Return in JSON format, where the key is a list of input statements that contributed to your insights and value is your insight. Make the response parseable by Typescript JSON.parse() function. DO NOT escape characters or include '\n' or white space in response.
           Example: [{insight: "...", statementIds: [1,2]}, {insight: "...", statementIds: [1]}, ...]`;
 
-        const { content: reflection } = await chatCompletion({
+        const { content: reflection } = await chatCompletionWithLogging({
+          character_id: playerId,
+          target_char_ids: [],
+          call_type: 'reflectOnMemories',
+          game_id: 'the_nexus', // TODO generate unique game ids and pass them in
           messages: [
             {
               role: 'user',
@@ -435,5 +456,18 @@ export const getRecentMessages = internalQuery({
     return (await asyncMap(allMessages, clientMessageMapper(ctx.db))).filter(
       (m) => m.from === playerId || m.to.includes(playerId),
     );
+  },
+});
+
+export const getLatestPlan = internalQuery({
+  args: { playerId: v.id('players') },
+  handler: async (ctx, { playerId }) => {
+    return await ctx.db
+      .query('memories')
+      .withIndex('by_playerId_type', (q) =>
+        q.eq('playerId', playerId).eq('data.type', 'plan'),
+      )
+      .order('desc')
+      .first();
   },
 });

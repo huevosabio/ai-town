@@ -201,7 +201,7 @@ export async function handleAgentInteraction(
           );
     lastSpeakerId = speaker.id;
     const audience = players.filter((p) => p.id !== speaker.id).map((p) => p.id);
-    const shouldWalkAway = audience.length === 0 || (await walkAway(chatHistory, speaker));
+    const shouldWalkAway = audience.length === 0 || (await walkAway(chatHistory, speaker, audience));
 
     // Decide if we keep talking.
     if (shouldWalkAway || Date.now() > endAfterTs) {
@@ -248,7 +248,13 @@ export async function handleAgentInteraction(
 
   if (messages.length > 0) {
     for (const player of players) {
-      await memory.rememberConversation(player.name, player.id, player.identity, conversationId);
+      await memory.rememberConversation(
+        player.name,
+        player.id,
+        player.identity,
+        conversationId,
+        players.filter((p) => p.id !== player.id).map((p) => p.id),
+      );
       await done(player.agentId, { type: 'walk', ignore: players.map((p) => p.id) });
     }
   }

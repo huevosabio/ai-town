@@ -2,7 +2,8 @@ import { Id } from './_generated/dataModel';
 import { ActionCtx } from './_generated/server';
 import { fetchEmbeddingWithCache } from './lib/cached_llm';
 import { MemoryDB, filterMemoriesType } from './lib/memory';
-import { LLMMessage, chatCompletion, fetchEmbedding } from './lib/openai';
+import { LLMMessage, fetchEmbedding } from './lib/openai';
+import { chatCompletionWithLogging } from './lib/chat_completion';
 import { Message } from './schema';
 
 type Player = { id: Id<'players'>; name: string; identity: string };
@@ -39,7 +40,16 @@ export async function startConversation(
     },
   ];
   const stop = stopWords(newFriendsNames);
-  const { content } = await chatCompletion({ messages: prompt, max_tokens: 300, stop });
+  const newFriendsIds = audience.map((p) => p.id);
+  const { content } = await chatCompletionWithLogging({
+    character_id: player.id,
+    target_char_ids: newFriendsIds,
+    call_type: 'start_conversation',
+    game_id: 'the_nexus', // TODO generate unique game ids and pass them in
+    messages: prompt,
+    max_tokens: 300,
+    stop
+  });
   return { content: trimContent(content, stop), memoryIds: memories.map((m) => m.memory._id) };
 }
 
@@ -110,7 +120,15 @@ export async function decideWhoSpeaksNext(
       content: promptStr,
     },
   ];
-  const { content } = await chatCompletion({ messages: prompt, max_tokens: 300 });
+  const characterIds = players.map((p) => p.id);
+  const { content } = await chatCompletionWithLogging({
+    character_id: '',
+    target_char_ids: characterIds,
+    call_type: 'decideWhoSpeaksNext',
+    game_id: 'the_nexus', // TODO generate unique game ids and pass them in
+    messages: prompt,
+    max_tokens: 300
+  });
   let speakerId: string;
   try {
     speakerId = JSON.parse(content).id;
@@ -179,13 +197,23 @@ export async function converse(
       content: `${player.name}:`,
     },
   ];
-  const stop = stopWords(nearbyPlayers.map((p) => p.name));
-  const { content } = await chatCompletion({ messages: prompt, max_tokens: 300, stop });
+  const nearbyPlayersList = nearbyPlayers.map((p) => p.name);
+  const nearbyPlayersIds = nearbyPlayers.map((p) => p.id);
+  const stop = stopWords(nearbyPlayersList);
+  const { content } = await chatCompletionWithLogging({
+    character_id: player.id,
+    target_char_ids: nearbyPlayersIds,
+    call_type: 'converse',
+    game_id: 'the_nexus', // TODO generate unique game ids and pass them in
+    messages: prompt,
+    max_tokens: 300,
+    stop
+  });
   // console.debug('converse result through chatgpt: ', content);
   return { content: trimContent(content, stop), memoryIds: memories.map((m) => m.memory._id) };
 }
 
-export async function walkAway(messages: LLMMessage[], player: Player): Promise<boolean> {
+export async function walkAway(messages: LLMMessage[], player: Player, audience: Id<'players'>[]): Promise<boolean> {
   const prompt: LLMMessage[] = [
     {
       role: 'user',
@@ -195,7 +223,11 @@ export async function walkAway(messages: LLMMessage[], player: Player): Promise<
     },
     ...messages,
   ];
-  const { content: description } = await chatCompletion({
+  const { content: description } = await chatCompletionWithLogging({
+    character_id: player.id,
+    target_char_ids: audience,
+    call_type: 'walkAway',
+    game_id: 'the_nexus', // TODO generate unique game ids and pass them in
     messages: prompt,
     max_tokens: 1,
     temperature: 0,
