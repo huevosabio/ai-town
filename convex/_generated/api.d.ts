@@ -36,7 +36,23 @@ import type * as game_movement from "../game/movement";
 import type * as game_players from "../game/players";
 import type * as http from "../http";
 import type * as init from "../init";
+<<<<<<< HEAD
 import type * as messages from "../messages";
+=======
+import type * as journal from "../journal";
+import type * as lib_cached_llm from "../lib/cached_llm";
+import type * as lib_chat_completion from "../lib/chat_completion";
+import type * as lib_log_llm_call from "../lib/log_llm_call";
+import type * as lib_memory from "../lib/memory";
+import type * as lib_migrations from "../lib/migrations";
+import type * as lib_openai from "../lib/openai";
+import type * as lib_physics from "../lib/physics";
+import type * as lib_pinecone from "../lib/pinecone";
+import type * as lib_replicate from "../lib/replicate";
+import type * as lib_routing from "../lib/routing";
+import type * as lib_utils from "../lib/utils";
+import type * as maps_firstmap from "../maps/firstmap";
+>>>>>>> main
 import type * as music from "../music";
 import type * as testing from "../testing";
 import type * as util_assertNever from "../util/assertNever";
@@ -80,7 +96,23 @@ declare const fullApi: ApiFromModules<{
   "game/players": typeof game_players;
   http: typeof http;
   init: typeof init;
+<<<<<<< HEAD
   messages: typeof messages;
+=======
+  journal: typeof journal;
+  "lib/cached_llm": typeof lib_cached_llm;
+  "lib/chat_completion": typeof lib_chat_completion;
+  "lib/log_llm_call": typeof lib_log_llm_call;
+  "lib/memory": typeof lib_memory;
+  "lib/migrations": typeof lib_migrations;
+  "lib/openai": typeof lib_openai;
+  "lib/physics": typeof lib_physics;
+  "lib/pinecone": typeof lib_pinecone;
+  "lib/replicate": typeof lib_replicate;
+  "lib/routing": typeof lib_routing;
+  "lib/utils": typeof lib_utils;
+  "maps/firstmap": typeof maps_firstmap;
+>>>>>>> main
   music: typeof music;
   testing: typeof testing;
   "util/assertNever": typeof util_assertNever;

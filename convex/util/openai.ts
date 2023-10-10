@@ -1,4 +1,14 @@
 // That's right! No imports and no dependencies 🤯
+const allowedModelIds = [
+  'gpt-4-0613',
+  'gpt-4',
+  'gpt-4-32k',
+  'gpt-4-32k-0613',
+  'gpt-3.5-turbo',
+  'gpt-3.5-turbo-0613',
+  'gpt-3.5-turbo-16k',
+  'gpt-3.5-turbo-16k-0613',
+];
 
 // Overload for non-streaming
 export async function chatCompletion(
@@ -22,7 +32,10 @@ export async function chatCompletion(
   },
 ) {
   checkForAPIKey();
-
+  const model_id = process.env.LLM_MODEL_ID;
+  if (model_id !== undefined && !allowedModelIds.includes(model_id)) {
+    throw new Error(`Invalid model_id: ${model_id}`);
+  }
   body.model = body.model ?? 'gpt-3.5-turbo-16k';
   const openaiApiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com';
   const stopWords = body.stop ? (typeof body.stop === 'string' ? [body.stop] : body.stop) : [];
@@ -60,7 +73,6 @@ export async function chatCompletion(
       return content;
     }
   });
-
   return {
     content,
     retries,
