@@ -3,9 +3,10 @@ import { v } from 'convex/values';
 import { ActionCtx, DatabaseReader, internalMutation, internalQuery } from '../_generated/server';
 import { Doc, Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
-import { LLMMessage, chatCompletion, fetchEmbedding } from '../util/openai';
+import { LLMMessage, fetchEmbedding } from '../util/openai';
 import { ACTION_TIMEOUT } from './constants';
 import { asyncMap } from '../util/asyncMap';
+import { chatCompletionWithLogging } from '../util/chat_completion';
 
 // How long to wait before updating a memory's last access time.
 export const MEMORY_ACCESS_THROTTLE = 300_000; // In ms
@@ -89,9 +90,13 @@ export async function rememberConversation(
     });
   }
   llmMessages.push({ role: 'user', content: 'Summary:' });
-  const { content } = await chatCompletion({
+  const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 500,
+    game_id: 'the_nexus',
+    character_id: player._id,
+    target_char_ids: [otherPlayer._id],
+    call_type: 'remember_conversation'
   });
   const description = `Conversation with ${otherPlayer.name} at ${new Date(
     data.conversation._creationTime,
@@ -238,7 +243,7 @@ export const loadMessages = internalQuery({
 
 async function calculateImportance(player: Doc<'players'>, description: string) {
   // TODO: make a better prompt based on the user's memories
-  const { content: importanceRaw } = await chatCompletion({
+  const { content: importanceRaw } = await chatCompletionWithLogging({
     messages: [
       // {
       //   role: 'user',
@@ -256,6 +261,10 @@ async function calculateImportance(player: Doc<'players'>, description: string) 
     ],
     temperature: 0.0,
     max_tokens: 1,
+    game_id: 'the_nexus', // TODO: use a different game id
+    character_id: player._id,
+    target_char_ids: [],
+    call_type: 'calculate_importance'
   });
 
   let importance = parseFloat(importanceRaw);

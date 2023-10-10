@@ -1,14 +1,4 @@
 // That's right! No imports and no dependencies 🤯
-const allowedModelIds = [
-  'gpt-4-0613',
-  'gpt-4',
-  'gpt-4-32k',
-  'gpt-4-32k-0613',
-  'gpt-3.5-turbo',
-  'gpt-3.5-turbo-0613',
-  'gpt-3.5-turbo-16k',
-  'gpt-3.5-turbo-16k-0613',
-];
 
 // Overload for non-streaming
 export async function chatCompletion(
@@ -17,7 +7,11 @@ export async function chatCompletion(
   } & {
     stream?: false | null | undefined;
   },
-): Promise<{ content: string; retries: number; ms: number }>;
+): Promise<{ content: string; retries: number; ms: number; usage:  {
+  completion_tokens: number;
+  prompt_tokens: number;
+  total_tokens: number;
+} | undefined}>;
 // Overload for streaming
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
@@ -25,22 +19,22 @@ export async function chatCompletion(
   } & {
     stream?: true;
   },
-): Promise<{ content: ChatCompletionContent; retries: number; ms: number }>;
+): Promise<{ content: ChatCompletionContent; retries: number; ms: number; usage:  {
+  completion_tokens: number;
+  prompt_tokens: number;
+  total_tokens: number;
+} | undefined}>;
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
     model?: CreateChatCompletionRequest['model'];
   },
 ) {
   checkForAPIKey();
-  const model_id = process.env.LLM_MODEL_ID;
-  if (model_id !== undefined && !allowedModelIds.includes(model_id)) {
-    throw new Error(`Invalid model_id: ${model_id}`);
-  }
   body.model = body.model ?? 'gpt-3.5-turbo-16k';
   const openaiApiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com';
   const stopWords = body.stop ? (typeof body.stop === 'string' ? [body.stop] : body.stop) : [];
   const {
-    result: content,
+    result,
     retries,
     ms,
   } = await retryWithBackoff(async () => {
@@ -63,20 +57,27 @@ export async function chatCompletion(
       };
     }
     if (body.stream) {
-      return new ChatCompletionContent(result.body!, stopWords);
+      return {
+        content: new ChatCompletionContent(result.body!, stopWords),
+        usage: undefined,
+      };
     } else {
       const json = (await result.json()) as CreateChatCompletionResponse;
       const content = json.choices[0].message?.content;
       if (content === undefined) {
         throw new Error('Unexpected result from OpenAI: ' + JSON.stringify(json));
       }
-      return content;
+      return {
+        content,
+        usage: json.usage,
+      };
     }
   });
   return {
-    content,
+    content: result.content,
     retries,
     ms,
+    usage: result.usage
   };
 }
 
@@ -117,7 +118,7 @@ export async function fetchEmbeddingBatch(texts: string[]) {
   allembeddings.sort((a, b) => a.index - b.index);
   return {
     embeddings: allembeddings.map(({ embedding }) => embedding),
-    usage: json.usage.total_tokens,
+    usage: json.usage,
     retries,
     ms,
   };

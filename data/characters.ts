@@ -6,8 +6,31 @@ import { data as f5SpritesheetData } from './spritesheets/f5';
 import { data as f6SpritesheetData } from './spritesheets/f6';
 import { data as f7SpritesheetData } from './spritesheets/f7';
 import { data as f8SpritesheetData } from './spritesheets/f8';
+import {default as character_descriptions} from './the_nexus_character_descriptions.json';
+// I don't have the patience to deal with typescript nonesense
+export type Id<TableName extends string> = string & { __tableName: TableName };
 
-export const Descriptions = [
+type Memory =
+  | { type: 'reflection'; description: string; relatedMemoryIds: Id<'memories'>[] }
+  | { type: 'identity'; description: string }
+  | { type: 'relationship'; description: string; playerName: string }
+  | { type: 'plan'; description: string };
+
+type Position = {
+  x: number;
+  y: number;
+};
+
+type Character = {
+  name: string;
+  character: string;
+  memories: Memory[];
+  position: Position;
+};
+
+export const Descriptions = character_descriptions as Character[];
+
+export const OldDescriptions = [
   {
     name: 'Alex',
     character: 'f5',

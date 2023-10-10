@@ -1,7 +1,8 @@
 import { v } from 'convex/values';
 import { Doc, Id } from '../_generated/dataModel';
 import { ActionCtx, internalQuery } from '../_generated/server';
-import { LLMMessage, chatCompletion } from '../util/openai';
+import { LLMMessage } from '../util/openai';
+import { chatCompletionWithLogging } from '../util/chat_completion';
 import * as memory from './memory';
 import { api, internal } from '../_generated/api';
 import * as embeddingsCache from './embeddingsCache';
@@ -45,7 +46,7 @@ export async function startConversation(
   }
   prompt.push(`${player.name}:`);
 
-  const { content } = await chatCompletion({
+  const { content } = await chatCompletionWithLogging({
     messages: [
       {
         role: 'user',
@@ -55,6 +56,10 @@ export async function startConversation(
     max_tokens: 300,
     stream: true,
     stop: stopWords(otherPlayer, player),
+    game_id: 'the_nexus', // TODO: get this from the game
+    character_id: player._id,
+    target_char_ids: [otherPlayer._id],
+    call_type: 'startConversation'
   });
   return content;
 }
@@ -101,11 +106,15 @@ export async function continueConversation(
     ...(await previousMessages(ctx, player, otherPlayer, conversation._id)),
   ];
   llmMessages.push({ role: 'user', content: `${player.name}:` });
-  const { content } = await chatCompletion({
+  const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 300,
     stream: true,
     stop: stopWords(otherPlayer, player),
+    game_id: 'the_nexus', // TODO: get this from the game
+    character_id: player._id,
+    target_char_ids: [otherPlayer._id],
+    call_type: 'continueConversation'
   });
   return content;
 }
@@ -143,11 +152,15 @@ export async function leaveConversation(
     ...(await previousMessages(ctx, player, otherPlayer, conversation._id)),
   ];
   llmMessages.push({ role: 'user', content: `${player.name}:` });
-  const { content } = await chatCompletion({
+  const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 300,
     stream: true,
     stop: stopWords(otherPlayer, player),
+    game_id: 'the_nexus', // TODO: get this from the game
+    character_id: player._id,
+    target_char_ids: [otherPlayer._id],
+    call_type: 'leaveConversation'
   });
   return content;
 }
