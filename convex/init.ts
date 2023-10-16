@@ -51,6 +51,8 @@ const init = mutation({
           name: agent.name,
           description: agent.identity,
           character: agent.character,
+          hasSecretCode: agent.hasSecretCode,
+          reportedAsHuman: agent.reportedAsHuman,
         });
         await ctx.scheduler.runAfter(1000, internal.init.completeAgentCreation, {
           worldId: world._id,

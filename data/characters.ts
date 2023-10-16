@@ -26,6 +26,10 @@ type Character = {
   character: string;
   memories: Memory[];
   position: Position;
+  identity: string;
+  plan: string;
+  hasSecretCode: boolean;
+  reportedAsHuman: boolean;
 };
 
 export const Descriptions = character_descriptions as Character[];

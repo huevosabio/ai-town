@@ -74,7 +74,7 @@ export class AiTown extends Game<Inputs> {
 
   async handleJoin(
     now: number,
-    { name, description, tokenIdentifier, character }: InputArgs<'join'>,
+    { name, description, tokenIdentifier, character, hasSecretCode, reportedAsHuman }: InputArgs<'join'>,
   ): Promise<InputReturnValue<'join'>> {
     const players = this.players.allDocuments();
     let position;
@@ -117,6 +117,8 @@ export class AiTown extends Game<Inputs> {
       human: tokenIdentifier,
       character,
       locationId,
+      hasSecretCode,
+      reportedAsHuman
     });
     return playerId;
   }

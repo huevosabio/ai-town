@@ -508,14 +508,13 @@ export const agentStartConversation = internalAction({
     lastConversationId: v.union(v.id('conversations'), v.null()),
   },
   handler: async (ctx, args) => {
-    const tokenStream = await startConversation(
+    const text = await startConversation(
       ctx,
       args.conversationId,
       args.playerId,
       args.otherPlayerId,
       args.lastConversationId,
     );
-    const text = await tokenStream.readAll();
     await ctx.runMutation(selfInternal.agentWriteMessage, {
       agentId: args.agentId,
       generationNumber: args.generationNumber,
@@ -543,22 +542,36 @@ export const agentContinueConversation = internalAction({
     lastConversationId: v.union(v.id('conversations'), v.null()),
   },
   handler: async (ctx, args) => {
-    const tokenStream = await continueConversation(
+    const {content, functionCallName} = await continueConversation(
       ctx,
       args.conversationId,
       args.playerId,
       args.otherPlayerId,
       args.lastConversationId,
     );
-    const text = await tokenStream.readAll();
     await ctx.runMutation(selfInternal.agentWriteMessage, {
       agentId: args.agentId,
       generationNumber: args.generationNumber,
       playerId: args.playerId,
       conversationId: args.conversationId,
-      text,
+      text: content,
       leaveConversation: false,
     });
+    // update player state if function call is present
+    if (functionCallName) {
+      if (functionCallName === 'reportHuman') {
+        await ctx.runMutation(selfInternal.reportPlayerAsHuman, {
+          playerId: args.otherPlayerId,
+          reportedAsHuman: true,
+        });
+      }
+      else if (functionCallName === 'shareSecretCode') {
+        await ctx.runMutation(selfInternal.updatePlayerSecretCode, {
+          playerId: args.otherPlayerId,
+          hasSecretCode: true,
+        });
+      }
+    }
     await ctx.runMutation(selfInternal.scheduleNextRun, {
       agentId: args.agentId,
       expectedGenerationNumber: args.generationNumber,
@@ -578,14 +591,13 @@ export const agentLeaveConversation = internalAction({
     lastConversationId: v.union(v.id('conversations'), v.null()),
   },
   handler: async (ctx, args) => {
-    const tokenStream = await leaveConversation(
+    const text = await leaveConversation(
       ctx,
       args.conversationId,
       args.playerId,
       args.otherPlayerId,
       args.lastConversationId,
     );
-    const text = await tokenStream.readAll();
     await ctx.runMutation(selfInternal.agentWriteMessage, {
       agentId: args.agentId,
       generationNumber: args.generationNumber,
@@ -638,5 +650,33 @@ export const agentWriteMessage = internalMutation({
         playerId: args.playerId,
       });
     }
+  },
+});
+
+export const updatePlayerSecretCode = internalMutation({
+  args: {
+    playerId: v.id('players'),
+    hasSecretCode: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const player = await ctx.db.get(args.playerId);
+    if (!player) {
+      throw new Error(`Invalid player ID: ${args.playerId}`);
+    }
+    await ctx.db.patch(player._id, { hasSecretCode: args.hasSecretCode });
+  },
+});
+
+export const reportPlayerAsHuman = internalMutation({
+  args: {
+    playerId: v.id('players'),
+    reportedAsHuman: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const player = await ctx.db.get(args.playerId);
+    if (!player) {
+      throw new Error(`Invalid player ID: ${args.playerId}`);
+    }
+    await ctx.db.patch(player._id, { reportedAsHuman: args.reportedAsHuman });
   },
 });

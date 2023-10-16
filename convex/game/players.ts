@@ -46,6 +46,12 @@ export const players = defineTable({
 
   // Pointer to the locations table for the player's current position.
   locationId: v.id('locations'),
+
+  // Whether the player has been given a secret code.
+  hasSecretCode: v.boolean(),
+
+  // Whether the player has been reported as human.
+  reportedAsHuman: v.boolean(),
 }).index('active', ['worldId', 'active', 'human']);
 
 export class Players extends GameTable<'players'> {

@@ -7,7 +7,7 @@ export async function chatCompletion(
   } & {
     stream?: false | null | undefined;
   },
-): Promise<{ content: string; retries: number; ms: number; usage:  {
+): Promise<{ content: string; retries: number; ms: number; function_call?: {name: string, arguments: string}; usage:  {
   completion_tokens: number;
   prompt_tokens: number;
   total_tokens: number;
@@ -19,7 +19,7 @@ export async function chatCompletion(
   } & {
     stream?: true;
   },
-): Promise<{ content: ChatCompletionContent; retries: number; ms: number; usage:  {
+): Promise<{ content: ChatCompletionContent; retries: number; ms: number; function_call?: {name: string, arguments: string}; usage:  {
   completion_tokens: number;
   prompt_tokens: number;
   total_tokens: number;
@@ -27,6 +27,8 @@ export async function chatCompletion(
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
     model?: CreateChatCompletionRequest['model'];
+  } & {
+    stream?: boolean | null | undefined;
   },
 ) {
   checkForAPIKey();
@@ -64,12 +66,14 @@ export async function chatCompletion(
     } else {
       const json = (await result.json()) as CreateChatCompletionResponse;
       const content = json.choices[0].message?.content;
+      const function_call = json.choices[0].message?.function_call;
       if (content === undefined) {
         throw new Error('Unexpected result from OpenAI: ' + JSON.stringify(json));
       }
       return {
         content,
         usage: json.usage,
+        function_call,
       };
     }
   });
@@ -77,7 +81,8 @@ export async function chatCompletion(
     content: result.content,
     retries,
     ms,
-    usage: result.usage
+    usage: result.usage,
+    function_call: result.function_call,
   };
 }
 
@@ -249,6 +254,10 @@ interface CreateChatCompletionResponse {
     message?: {
       role: 'system' | 'user' | 'assistant';
       content: string;
+      function_call?: {
+        name: string;
+        arguments: string;
+      };
     };
     finish_reason?: string;
   }[];

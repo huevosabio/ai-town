@@ -9,6 +9,8 @@ export const inputs = {
       character: v.string(),
       description: v.string(),
       tokenIdentifier: v.optional(v.string()),
+      hasSecretCode: v.boolean(),
+      reportedAsHuman: v.boolean()
     }),
     returnValue: v.id('players'),
   },

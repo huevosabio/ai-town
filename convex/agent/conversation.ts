@@ -6,6 +6,7 @@ import { chatCompletionWithLogging } from '../util/chat_completion';
 import * as memory from './memory';
 import { api, internal } from '../_generated/api';
 import * as embeddingsCache from './embeddingsCache';
+import {getAvailableFunctions} from '../util/llm_functions.js';
 
 const selfInternal = internal.agent.conversation;
 
@@ -54,7 +55,7 @@ export async function startConversation(
       },
     ],
     max_tokens: 300,
-    stream: true,
+    stream: false,
     stop: stopWords(otherPlayer, player),
     game_id: 'the_nexus', // TODO: get this from the game
     character_id: player._id,
@@ -80,6 +81,10 @@ export async function continueConversation(
       lastConversationId,
     },
   );
+  // check if player has secret code
+  const playerHasSecretCode = player.hasSecretCode;
+  // check if player is a human
+  const playerIsHuman = player.human !== undefined;
   const now = Date.now();
   const started = new Date(conversation._creationTime);
   const embedding = await embeddingsCache.fetch(
@@ -97,6 +102,9 @@ export async function continueConversation(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
     `DO NOT greet them again. Do NOT use the word "Hey" too often. Your response should be brief and within 200 characters.`,
   );
+  
+  // available functions depend on whether the player is human and whether they have the secret code
+  const availableFunctions = getAvailableFunctions(playerHasSecretCode);
 
   const llmMessages: LLMMessage[] = [
     {
@@ -106,17 +114,21 @@ export async function continueConversation(
     ...(await previousMessages(ctx, player, otherPlayer, conversation._id)),
   ];
   llmMessages.push({ role: 'user', content: `${player.name}:` });
-  const { content } = await chatCompletionWithLogging({
+  let completionParams =  {
     messages: llmMessages,
     max_tokens: 300,
-    stream: true,
+    stream: false,
     stop: stopWords(otherPlayer, player),
     game_id: 'the_nexus', // TODO: get this from the game
     character_id: player._id,
     target_char_ids: [otherPlayer._id],
     call_type: 'continueConversation'
-  });
-  return content;
+  }
+  if (availableFunctions.length > 0) {
+    completionParams = {...completionParams, functions: availableFunctions};
+  }
+  const { content, functionCallName } = await chatCompletionWithLogging(completionParams);
+  return {content, functionCallName};
 }
 
 export async function leaveConversation(
@@ -155,7 +167,7 @@ export async function leaveConversation(
   const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 300,
-    stream: true,
+    stream: false,
     stop: stopWords(otherPlayer, player),
     game_id: 'the_nexus', // TODO: get this from the game
     character_id: player._id,

@@ -146,6 +146,8 @@ export const joinWorld = mutation({
         character: characters[Math.floor(Math.random() * characters.length)].name,
         description: `${identity.givenName} is a human player`,
         tokenIdentifier,
+        hasSecretCode: false,
+        reportedAsHuman: false
       },
     });
   },
