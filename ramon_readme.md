@@ -1,0 +1,35 @@
+## This is Ramon's log
+
+- [2023-10-18 10:24:11] Ok, trying to resume, this is what I want to do today:
+  - move the recent events so that they are `inputs` that way conversations actually end gracefully and we do everything through inputs
+- [2023-10-17 12:50:38] alright, I think I have to make the call-backs _after_ the conversation message is sent so that it finishes.
+- [2023-10-16 15:36:08] I tried simply deactivating players, but that keeps them in a limbo so that's not going to fly
+- [2023-10-16 13:21:15] Boot AIs that have been reported as human
+  - hook that disables a player
+  - a banner that shows that a player was booted
+- [2023-10-16 12:24:14] Ok, now I have implemented 2 of the 3 end game conditions; the problem with the third is that I don't think is well designed:
+  - if its by majority of total number AIs, then if the code-holder starts reporting aggressively this condition may not be achievable and will be the equivalent of not existing
+  - if it doesn't exist, then the incentive for Zara is to just keep reporting
+  - if its by existing majority then at some point the incentive reverts to just reporting (e.g. get at least 1 AI then report everyone)
+  - So what is a proper incentive for Zara to share the code?
+- [2023-10-16 07:11:10] Alright, so I want to code that when the human gets the code:
+  - the game stops (use the same functionality as init:stop and just use a different status) [done]
+  - a banner appears that "human victory!" [done]
+- [2023-10-15 22:13:00] fixed that, and it works! for tomorrow, I need to add the victory conditions and show some sort of pop up:
+  - human has the code, human wins [done]
+  - all ai have the code, ai wins (actually, this is not a good idea because you could win by reporting whomever, so perhaps only reported human?)
+  - human has been found and reported [done]
+- [2023-10-15 20:12:28] now I have to fix the human interaction since it broke when I added the new fields
+- [2023-10-15 20:10:21] Fantastic! So i had a bug where i was never passing the share code function, but now it works, zaranova shared it with maxfusion but reported leosky
+- [2023-10-15 20:02:41] actually, zaranova gave him the code, why did not call the function? I may need to have a call back ... sigh
+- [2023-10-15 20:00:54] interestingly, maxfusion outright asked for the code, and zaranova behaved as if she did not have it? prompting is going to be a bitch
+- [2023-10-15 19:48:33] ok, so now we have the report and share functionality, although we have not seen any code sharing, now we need to propagate the repercussions (i.e. if you are reported you should be expelled)
+- [2023-10-15 14:06:04] Resuming the work, I don't know if I want to make the code sharing an explicit function call or if it should implicit. I think it should be an explicit choice by the LLM. Roughly, always offer the option of sharing the code / or report human (if the AI has the code). That way the AI knows the implications.
+- [2023-10-12 10:36:21] Adding the table that has the state for the zetamaster [done]
+- [2023-10-12 10:29:12] Going to work on the path for being able to declare someone as human, which requires an AI to have the code. So first, let's build the following features:
+  - Keep track of which players have the zetamaster [done]
+  - Keep track of which players have been declared as human [done]
+  - Offer the LLM the "functions" to share code / report as human. [done]
+  - Allow action to declare a player human if you have the code [done]
+  - Callback to action that stores that in the system [done]
+  - End game if human player is reported
