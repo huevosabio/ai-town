@@ -119,7 +119,7 @@ export const archive = internalMutation({
   },
 });
 
-async function getDefaultWorld(db: DatabaseReader) {
+export async function getDefaultWorld(db: DatabaseReader) {
   const world = await db
     .query('worlds')
     .filter((q) => q.eq(q.field('isDefault'), true))

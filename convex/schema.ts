@@ -10,7 +10,13 @@ export default defineSchema({
     mapId: v.id('maps'),
 
     lastViewed: v.number(),
-    status: v.union(v.literal('running'), v.literal('stoppedByDeveloper'), v.literal('inactive')),
+    status: v.union(
+      v.literal('running'),
+      v.literal('stoppedByDeveloper'),
+      v.literal('inactive'),
+      v.literal('stoppedByHumanVictory'),
+      v.literal('stoppedByHumanCaught')
+    ),
   }).index('engineId', ['engineId']),
   maps: defineTable({
     width: v.number(),

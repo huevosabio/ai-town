@@ -46,6 +46,9 @@ export const heartbeatWorld = mutation({
     if (world.status === 'stoppedByDeveloper') {
       console.debug(`World ${world._id} is stopped by developer, not restarting.`);
     }
+    if (world.status === 'stoppedByHumanVictory') {
+      console.debug(`World ${world._id} is stopped due to human victory, not restarting.`);
+    }
 
     if (world.status === 'inactive') {
       console.log(`Restarting inactive world ${world._id}...`);

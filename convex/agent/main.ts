@@ -3,7 +3,7 @@ import { Doc, Id } from '../_generated/dataModel';
 import { MutationCtx, internalAction, internalMutation } from '../_generated/server';
 import { CONVERSATION_DISTANCE } from '../constants';
 import { InputArgs, InputNames } from '../game/inputs';
-import { insertInput } from '../game/main';
+import { insertInput, sendInput } from '../game/main';
 import { startTyping, writeMessage } from '../messages';
 import { distance } from '../util/geometry';
 import { Point } from '../util/types';
@@ -23,6 +23,9 @@ import {
 import { continueConversation, leaveConversation, startConversation } from './conversation';
 import { internal } from '../_generated/api';
 import { latestMemoryOfType, rememberConversation } from './memory';
+import { getDefaultWorld } from '../init';
+import {stopEngine}  from '../engine/game'
+import { stopAgents } from '../agent/init';
 
 const selfInternal = internal.agent.main;
 
@@ -564,11 +567,20 @@ export const agentContinueConversation = internalAction({
           playerId: args.otherPlayerId,
           reportedAsHuman: true,
         });
+        await ctx.runMutation(selfInternal.stopIfHumanReported, {
+          playerId: args.otherPlayerId,
+        });
+        await ctx.runMutation(selfInternal.bootAIIfReported, {
+          playerId: args.otherPlayerId,
+        });
       }
       else if (functionCallName === 'shareSecretCode') {
         await ctx.runMutation(selfInternal.updatePlayerSecretCode, {
           playerId: args.otherPlayerId,
           hasSecretCode: true,
+        });
+        await ctx.runMutation(selfInternal.stopIfHumanVictory, {
+          playerId: args.otherPlayerId,
         });
       }
     }
@@ -678,5 +690,82 @@ export const reportPlayerAsHuman = internalMutation({
       throw new Error(`Invalid player ID: ${args.playerId}`);
     }
     await ctx.db.patch(player._id, { reportedAsHuman: args.reportedAsHuman });
+  },
+});
+
+export const stopIfHumanVictory = internalMutation({
+  args: {
+    playerId: v.id('players')
+  },
+  handler: async (ctx, args) => {
+    // check if player is human
+    const player = await ctx.db.get(args.playerId);
+    if (player?.human) {
+      // stop game, the player won
+      const { world, engine } = await getDefaultWorld(ctx.db);
+      if (world.status === 'inactive') {
+        if (engine.state.kind !== 'stopped') {
+          throw new Error(`Engine ${engine._id} isn't stopped?`);
+        }
+        console.debug(`World ${world._id} is already inactive`);
+        return;
+      }
+      console.log(`Human Victory! Stopping engine ${engine._id}...`);
+      await ctx.db.patch(world._id, { status: 'stoppedByHumanVictory' });
+      await stopEngine(ctx, engine._id);
+      await stopAgents(ctx, { worldId: world._id });
+    } else {
+      // continue game
+    }
+  },
+});
+
+export const stopIfHumanReported = internalMutation({
+  args: {
+    playerId: v.id('players')
+  },
+  handler: async (ctx, args) => {
+    // check if player is human
+    const player = await ctx.db.get(args.playerId);
+    if (player?.human) {
+      // stop game, the player lost
+      const { world, engine } = await getDefaultWorld(ctx.db);
+      if (world.status === 'inactive') {
+        if (engine.state.kind !== 'stopped') {
+          throw new Error(`Engine ${engine._id} isn't stopped?`);
+        }
+        console.debug(`World ${world._id} is already inactive`);
+        return;
+      }
+      console.log(`Human Defeat! Stopping engine ${engine._id}...`);
+      await ctx.db.patch(world._id, { status: 'stoppedByHumanCaught' });
+      await stopEngine(ctx, engine._id);
+      await stopAgents(ctx, { worldId: world._id });
+    } else {
+      // continue game
+    }
+  },
+});
+
+export const bootAIIfReported = internalMutation({
+  args: {
+    playerId: v.id('players')
+  },
+  handler: async (ctx, args) => {
+    // check if player is human
+    const player = await ctx.db.get(args.playerId);
+    if (player && !player.hasSecretCode && typeof player.human !== 'string') {
+      // AI player is booted
+      console.log(`AI Reported, Booting AI ${player._id}...`);
+      await sendInput(ctx, {
+        worldId: player.worldId,
+        name: 'leave',
+        args: {
+          playerId: player._id,
+        },
+      });
+    } else {
+      // continue game
+    }
   },
 });
