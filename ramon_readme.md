@@ -1,6 +1,11 @@
 ## This is Ramon's log
 
+- [2023-10-19 15:26:39] I removed the convex/a16z banner as well as the pointer to AI Town. I should add the pointer to AI town at some point.
 - [2023-10-18 10:24:11] Ok, trying to resume, this is what I want to do today:
+  - create a new game for each player (so each player has an associated game)
+  - cap number of players in a given game (start with 1)
+  - AIs should know if both of them have the code
+  - pass the world id to clem logger
   - move the recent events so that they are `inputs` that way conversations actually end gracefully and we do everything through inputs
 - [2023-10-17 12:50:38] alright, I think I have to make the call-backs _after_ the conversation message is sent so that it finishes.
 - [2023-10-16 15:36:08] I tried simply deactivating players, but that keeps them in a limbo so that's not going to fly

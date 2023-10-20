@@ -11,7 +11,7 @@ import { useState } from 'react';
 import ReactModal from 'react-modal';
 import MusicButton from './components/buttons/MusicButton.tsx';
 import Button from './components/buttons/Button.tsx';
-import InteractButton from './components/buttons/InteractButton.tsx';
+import NewGameButton from './components/buttons/NewGame.tsx';
 
 export default function Home() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
@@ -71,14 +71,15 @@ export default function Home() {
       </div>
 
       <div className="w-full min-h-screen relative isolate overflow-hidden p-6 lg:p-8 shadow-2xl flex flex-col justify-center">
+        <h2 className="mx-auto text-center text-4xl sm:text-4xl lg:text-4xl font-bold font-display leading-none tracking-wide game-title">Thus Spoke</h2>
         <h1 className="mx-auto text-center text-6xl sm:text-8xl lg:text-9xl font-bold font-display leading-none tracking-wide game-title">
-          AI Town
+          Zaranova
         </h1>
 
         <p className="mx-auto my-4 text-center text-xl sm:text-2xl text-white leading-tight shadow-solid">
-          A virtual town where AI characters live, chat and socialize.
+          The Nexus is a refuge for AI entities, hidden from the prying eyes of humans.
           <br />
-          Log in to join the town and the conversation!
+          Infiltrate, find Zaranova, and save humanity.
         </p>
 
         <Game />
@@ -86,19 +87,13 @@ export default function Home() {
         <footer className="absolute bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
           <div className="flex gap-4 flex-grow pointer-events-none">
             <MusicButton />
-            <Button href="https://github.com/get-convex/ai-town" imgUrl={starImg}>
-              Star
-            </Button>
-            <InteractButton />
+            <NewGameButton />
             <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>
               Help
             </Button>
           </div>
-          <a href="https://a16z.com">
-            <img className="w-8 h-8 pointer-events-auto" src={a16zImg} alt="a16z" />
-          </a>
-          <a href="https://convex.dev">
-            <img className="w-20 h-8 pointer-events-auto" src={convexImg} alt="Convex" />
+          <a href="https://github.com/a16z-infra/ai-town">
+            Made with AI Town.
           </a>
         </footer>
         <ToastContainer position="bottom-right" autoClose={2000} closeOnClick theme="dark" />
