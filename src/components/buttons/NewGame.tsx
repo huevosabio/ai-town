@@ -10,26 +10,19 @@ export default function NewGameButton() {
   const userPlayerId = useQuery(api.world.userStatus, curentWorld ? { worldId: curentWorld._id } : 'skip'); // this should fetch the user's player id
   // these two should actually not be needed, we should just be able to create a new game and join it
   // creating a new game should pause the current game and create a new one
-  const join = useMutation(api.world.joinWorld);
-  const leave = useMutation(api.world.leaveWorld);
   const isPlaying = !!userPlayerId;
-
+  const numCharacters = 4;
+  const createNewGame = useMutation(api.init.init);
 
   // create new game here
   
-  const createNewGame = () => {
+  const newGameFunction = () => {
     if (!isAuthenticated) {
       // don't render if not authenticated
       return;
-    }
-    // TODO: create game here
-    // TODO: then stop current game and join new game
-    if (isPlaying) {
-      console.log(`Leaving game for player ${userPlayerId}`);
-      void leave({ worldId: world._id });
     } else {
-      console.log(`Joining game`);
-      void join({ worldId: world._id });
+      console.log('Creating new game')
+      void createNewGame({numAgents: numCharacters});
     }
   }
 
@@ -37,7 +30,7 @@ export default function NewGameButton() {
     return null;
   }
   return (
-    <Button imgUrl={interactImg} onClick={createNewGame}>
+    <Button imgUrl={interactImg} onClick={newGameFunction}>
       New Game
     </Button>
   );

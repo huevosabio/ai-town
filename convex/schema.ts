@@ -8,6 +8,7 @@ export default defineSchema({
     isDefault: v.boolean(),
     engineId: v.id('engines'),
     mapId: v.id('maps'),
+    userId: v.string(),
 
     lastViewed: v.number(),
     status: v.union(
@@ -15,7 +16,8 @@ export default defineSchema({
       v.literal('stoppedByDeveloper'),
       v.literal('inactive'),
       v.literal('stoppedByHumanVictory'),
-      v.literal('stoppedByHumanCaught')
+      v.literal('stoppedByHumanCaught'),
+      v.literal('stoppedByUser'),
     ),
   }).index('engineId', ['engineId']),
   maps: defineTable({

@@ -10,8 +10,10 @@ import { startEngine, stopEngine } from './engine/game';
 
 export const defaultWorld = query({
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
     const world = await ctx.db
       .query('worlds')
+      .filter((q) => q.eq(q.field('userId'), identity?.tokenIdentifier))
       .filter((q) => q.eq(q.field('isDefault'), true))
       .first();
     if (!world) {

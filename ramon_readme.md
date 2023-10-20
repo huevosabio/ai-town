@@ -1,9 +1,15 @@
 ## This is Ramon's log
 
+- [2023-10-20 13:14:21] it is sort of working, but I think when you reach a victory condition it doesn't allow you to play again. Time to debug!
+- [2023-10-20 12:07:29] when I create a game for the first time I don't get the human to play, why is that?
+- [2023-10-20 12:01:29] I can start a game, and have multiple players but I still only see the first default game, fixing it; 
+  - Fixed! I only get the game for your particular user
 - [2023-10-19 15:26:39] I removed the convex/a16z banner as well as the pointer to AI Town. I should add the pointer to AI town at some point.
 - [2023-10-18 10:24:11] Ok, trying to resume, this is what I want to do today:
-  - create a new game for each player (so each player has an associated game)
-  - cap number of players in a given game (start with 1)
+  - associate each world to a player [done]
+    - identity.subject gives me the user id from clerk
+  - create a new game for each player (so each player has an associated game) [done]
+  - cap number of players in a given game (start with 1) [done]
   - AIs should know if both of them have the code
   - pass the world id to clem logger
   - move the recent events so that they are `inputs` that way conversations actually end gracefully and we do everything through inputs

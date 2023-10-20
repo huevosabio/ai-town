@@ -702,7 +702,7 @@ export const stopIfHumanVictory = internalMutation({
     const player = await ctx.db.get(args.playerId);
     if (player?.human) {
       // stop game, the player won
-      const { world, engine } = await getDefaultWorld(ctx.db);
+      const { world, engine } = await getDefaultWorld(ctx, player.human);
       if (world.status === 'inactive') {
         if (engine.state.kind !== 'stopped') {
           throw new Error(`Engine ${engine._id} isn't stopped?`);
@@ -729,7 +729,7 @@ export const stopIfHumanReported = internalMutation({
     const player = await ctx.db.get(args.playerId);
     if (player?.human) {
       // stop game, the player lost
-      const { world, engine } = await getDefaultWorld(ctx.db);
+      const { world, engine } = await getDefaultWorld(ctx, player.human);
       if (world.status === 'inactive') {
         if (engine.state.kind !== 'stopped') {
           throw new Error(`Engine ${engine._id} isn't stopped?`);
