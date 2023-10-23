@@ -703,6 +703,9 @@ export const stopIfHumanVictory = internalMutation({
     if (player?.human) {
       // stop game, the player won
       const { world, engine } = await getDefaultWorld(ctx, player.human);
+      if (!world || !engine) {
+        throw new Error('World or engine is undefined');
+      }
       if (world.status === 'inactive') {
         if (engine.state.kind !== 'stopped') {
           throw new Error(`Engine ${engine._id} isn't stopped?`);
@@ -730,6 +733,9 @@ export const stopIfHumanReported = internalMutation({
     if (player?.human) {
       // stop game, the player lost
       const { world, engine } = await getDefaultWorld(ctx, player.human);
+      if (!world || !engine) {
+        throw new Error('World or engine is undefined');
+      }
       if (world.status === 'inactive') {
         if (engine.state.kind !== 'stopped') {
           throw new Error(`Engine ${engine._id} isn't stopped?`);

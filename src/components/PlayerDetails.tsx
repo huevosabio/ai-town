@@ -209,18 +209,6 @@ export default function PlayerDetails({
           </>
         )}
       </SignedIn>
-      <div className="desc my-6">
-        <p className="leading-tight -m-4 bg-brown-700 text-lg">
-          {!isMe && player.description}
-          {isMe && <i>This is you!</i>}
-          {!isMe && inConversationWithMe && (
-            <>
-              <br />
-              <br />(<i>Conversing with you!</i>)
-            </>
-          )}
-        </p>
-      </div>
       {!isMe && playerConversation && playerConversation.member.status.kind === 'participating' && (
         <Messages
           worldId={worldId}

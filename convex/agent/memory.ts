@@ -93,7 +93,7 @@ export async function rememberConversation(
   const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 500,
-    game_id: 'the_nexus',
+    game_id: player.worldId,
     character_id: player._id,
     target_char_ids: [otherPlayer._id],
     call_type: 'remember_conversation'
@@ -261,7 +261,7 @@ async function calculateImportance(player: Doc<'players'>, description: string) 
     ],
     temperature: 0.0,
     max_tokens: 1,
-    game_id: 'the_nexus', // TODO: use a different game id
+    game_id: player.worldId, // TODO: use a different game id
     character_id: player._id,
     target_char_ids: [],
     call_type: 'calculate_importance'

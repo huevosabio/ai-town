@@ -94,6 +94,9 @@ export default init;
 export const kick = internalMutation({
   handler: async (ctx) => {
     const { world, engine } = await getDefaultWorld(ctx);
+    if (!world || !engine) {
+      throw new Error('World or engine is undefined');
+    }
     await kickEngine(ctx, internal.game.main.runStep, engine._id);
     await kickAgents(ctx, { worldId: world._id });
   },
@@ -102,6 +105,9 @@ export const kick = internalMutation({
 export const stop = internalMutation({
   handler: async (ctx) => {
     const { world, engine } = await getDefaultWorld(ctx);
+    if (!world || !engine) {
+      throw new Error('World or engine is undefined');
+    }
     if (world.status === 'inactive' || world.status === 'stoppedByDeveloper') {
       if (engine.state.kind !== 'stopped') {
         throw new Error(`Engine ${engine._id} isn't stopped?`);
@@ -119,6 +125,9 @@ export const stop = internalMutation({
 export const resume = internalMutation({
   handler: async (ctx) => {
     const { world, engine } = await getDefaultWorld(ctx);
+    if (!world || !engine) {
+      throw new Error('World or engine is undefined');
+    }
     if (world.status === 'running') {
       if (engine.state.kind !== 'running') {
         throw new Error(`Engine ${engine._id} isn't running?`);
@@ -136,6 +145,9 @@ export const resume = internalMutation({
 export const archive = internalMutation({
   handler: async (ctx) => {
     const { world, engine } = await getDefaultWorld(ctx);
+    if (!world || !engine) {
+      throw new Error('World or engine is undefined');
+    }
     if (engine.state.kind === 'running') {
       throw new Error(`Engine ${engine._id} is still running!`);
     }
@@ -310,8 +322,13 @@ export async function stopDefaultWorld(ctx: MutationCtx) {
     if (world.status !== 'running') {
       if (engine.state.kind !== 'stopped') {
         console.debug(`Engine ${engine._id} isn't stopped but should!`);
+        console.log(`Stopping engine ${engine._id}...`);
+        await stopEngine(ctx, engine._id);
+        await stopAgents(ctx, { worldId: world._id });
+      } else {
+        console.debug(`Engine ${engine._id} is already stopped, removing default flag`);
       }
-      console.debug(`World ${world._id} is already inactive`);
+      await ctx.db.patch(world._id, { isDefault: false });
       return;
     }
     console.log(`Stopping engine ${engine._id}...`);

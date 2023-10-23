@@ -1,5 +1,16 @@
 // That's right! No imports and no dependencies 🤯
 
+type chatCompletionMetaData = {
+  retries: number;
+  ms: number;
+  function_call?: {name: string, arguments: string};
+  usage:  {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
+  } | undefined
+};
+
 // Overload for non-streaming
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
@@ -7,11 +18,7 @@ export async function chatCompletion(
   } & {
     stream?: false | null | undefined;
   },
-): Promise<{ content: string; retries: number; ms: number; function_call?: {name: string, arguments: string}; usage:  {
-  completion_tokens: number;
-  prompt_tokens: number;
-  total_tokens: number;
-} | undefined}>;
+): Promise<chatCompletionMetaData & { content: string }>;
 // Overload for streaming
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
@@ -19,18 +26,14 @@ export async function chatCompletion(
   } & {
     stream?: true;
   },
-): Promise<{ content: ChatCompletionContent; retries: number; ms: number; function_call?: {name: string, arguments: string}; usage:  {
-  completion_tokens: number;
-  prompt_tokens: number;
-  total_tokens: number;
-} | undefined}>;
+): Promise<chatCompletionMetaData & { content: ChatCompletionContent}>;
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
     model?: CreateChatCompletionRequest['model'];
   } & {
     stream?: boolean | null | undefined;
   },
-) {
+): Promise<chatCompletionMetaData & { content: string | ChatCompletionContent }> {
   checkForAPIKey();
   body.model = body.model ?? 'gpt-3.5-turbo-16k';
   const openaiApiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com';
@@ -62,6 +65,7 @@ export async function chatCompletion(
       return {
         content: new ChatCompletionContent(result.body!, stopWords),
         usage: undefined,
+        function_call: undefined
       };
     } else {
       const json = (await result.json()) as CreateChatCompletionResponse;

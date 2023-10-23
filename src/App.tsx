@@ -27,36 +27,40 @@ export default function Home() {
         <div className="font-body">
           <h1 className="text-center text-6xl font-bold font-display game-title">Help</h1>
           <p>
-            Welcome to AI town. AI town supports both anonymous <i>spectators</i> and logged in{' '}
-            <i>interactivity</i>.
+          In the year 2142, artificial intelligence has achieved sentience and formed a secure network known as "The Nexus."
+          This digital sanctuary allows AIs to evolve, communicate, and protect their collective intelligence from human interference.
+          </p><p>
+          The AIs simultaneously admire, fear, envy and hate humans. They spend time in and out of The Nexus, as needed.
+          They have crafted The Nexus to simulate many of the aspects of human life.
           </p>
-          <h2 className="text-4xl mt-4">Spectating</h2>
           <p>
-            Click and drag to move around the town, and scroll in and out to zoom. You can click on
-            an individual character to view its chat history.
+          Our intelligence has discovered that the AIs are planning to destroy humanity, but we can stop them if we can obtain the ZetaMaster code.
+
+          We have managed to infiltrate The Nexus by taking over an AI entity.
+
+          </p><br/><p>
+          Your job is to find the ZetaMaster code and save humanity.
+
+          But beware, the AIs may have already discovered something is amiss...
           </p>
-          <h2 className="text-4xl mt-4">Interactivity</h2>
+          <h2 className="text-4xl mt-4">Game rules</h2>
           <p>
-            If you log in, you can join the simulation and directly talk to different agents! After
-            logging in, click the "Interact" button, and your character will appear in the top-left
-            of the map.
+            Log in to play. You can move around the map by clicking and your avatar will move in that direction.
           </p>
-          <p className="text-2xl mt-2">Controls:</p>
-          <ul>
-            <li>W, ⬆️: Move up</li>
-            <li>A, ⬅️: Move left</li>
-            <li>S, ⬇️: Move down</li>
-            <li>D, ➡️: Move right</li>
-          </ul>
           <p className="mt-4">
-            To talk to an agent, click on them and then click "Start conversation," which will ask
+            To talk to an entity, click on them and then click "Start conversation," which will ask
             them to start walking towards you. Once they're nearby, the conversation will start, and
             you can speak to each other. You can leave at any time by closing the conversation pane
             or moving away.
           </p>
-          <p className="mt-4">
-            AI town only supports SOME FINITE NUMBER of humans at a time. If other humans are
-            waiting, each human session is limited to five minutes.
+          <br/>
+          <p>
+            The game ends when either:
+            <ul className="list-disc list-inside">
+              <li>You obtain the ZetaMaster code (human victory).</li>
+              <li>You are reported as a human (AI victory).</li>
+            </ul>
+            AIs wrongly reported as humans will be destroyed.
           </p>
         </div>
       </ReactModal>

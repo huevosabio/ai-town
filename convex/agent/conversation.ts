@@ -57,7 +57,7 @@ export async function startConversation(
     max_tokens: 300,
     stream: false,
     stop: stopWords(otherPlayer, player),
-    game_id: 'the_nexus', // TODO: get this from the game
+    game_id: player.worldId, // TODO: get this from the game
     character_id: player._id,
     target_char_ids: [otherPlayer._id],
     call_type: 'startConversation'
@@ -119,15 +119,14 @@ export async function continueConversation(
     max_tokens: 300,
     stream: false,
     stop: stopWords(otherPlayer, player),
-    game_id: 'the_nexus', // TODO: get this from the game
+    game_id: player.worldId, // TODO: get this from the game
     character_id: player._id,
     target_char_ids: [otherPlayer._id],
     call_type: 'continueConversation'
   }
-  if (availableFunctions.length > 0) {
-    completionParams = {...completionParams, functions: availableFunctions};
-  }
-  const { content, functionCallName } = await chatCompletionWithLogging(completionParams);
+  const { content, functionCallName } = await chatCompletionWithLogging(
+    availableFunctions.length > 0 ? {...completionParams, functions: availableFunctions} : completionParams
+  );
   return {content, functionCallName};
 }
 
@@ -169,7 +168,7 @@ export async function leaveConversation(
     max_tokens: 300,
     stream: false,
     stop: stopWords(otherPlayer, player),
-    game_id: 'the_nexus', // TODO: get this from the game
+    game_id: player.worldId, // TODO: get this from the game
     character_id: player._id,
     target_char_ids: [otherPlayer._id],
     call_type: 'leaveConversation'
