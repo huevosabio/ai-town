@@ -10,11 +10,11 @@ export const INVITE_ACCEPT_PROBABILITY = 0.8;
 // Wait for 1m for invites to be accepted.
 export const INVITE_TIMEOUT = 60000;
 
-// Wait for 20s for another player to say something before jumping in.
-export const AWKWARD_CONVERSATION_TIMEOUT = 20000;
+// Wait for 200s for another player to say something before jumping in.
+export const AWKWARD_CONVERSATION_TIMEOUT = 20000 * 10;
 
-// Leave a conversation after 2m of participating.
-export const MAX_CONVERSATION_DURATION = 120 * 1000;
+// Leave a conversation after 5m of participating.
+export const MAX_CONVERSATION_DURATION = 5 * 60 * 1000;
 
 // Leave a conversation if it has more than 8 messages;
 export const MAX_CONVERSATION_MESSAGES = 8;
