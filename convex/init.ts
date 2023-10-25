@@ -4,8 +4,9 @@ import { DatabaseReader, MutationCtx, internalMutation, mutation } from './_gene
 import { Descriptions } from '../data/characters';
 //import * as firstmap from '../data/firstmap';
 //import * as firstmap from '../data/mage';
-import * as firstmap from '../data/gentle';
+//import * as firstmap from '../data/gentle';
 //import * as firstmap from '../data/mage';
+import * as firstmap from '../data/mj_test_map';
 import { insertInput } from './game/main';
 import { Doc } from './_generated/dataModel';
 import { createEngine, kickEngine, startEngine, stopEngine } from './engine/game';
