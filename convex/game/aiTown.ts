@@ -5,7 +5,7 @@ import { assertNever } from '../util/assertNever';
 import { Players } from './players';
 import { DatabaseWriter } from '../_generated/server';
 import { Locations } from './locations';
-import { blocked, findRoute } from './movement';
+import { blocked, findRoute, getRandomUnblockedPoint } from './movement';
 import { characters } from '../../data/characters';
 import { EPSILON, distance, normalize, pathPosition, pointsEqual, vector } from '../util/geometry';
 import { CONVERSATION_DISTANCE, PATHFINDING_BACKOFF, PATHFINDING_TIMEOUT } from '../constants';
@@ -77,18 +77,7 @@ export class AiTown extends Game<Inputs> {
     { name, description, tokenIdentifier, character, hasSecretCode, reportedAsHuman }: InputArgs<'join'>,
   ): Promise<InputReturnValue<'join'>> {
     const players = this.players.allDocuments();
-    let position;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const candidate = {
-        x: Math.floor(Math.random() * this.map.width),
-        y: Math.floor(Math.random() * this.map.height),
-      };
-      if (blocked(this, now, candidate)) {
-        continue;
-      }
-      position = candidate;
-      break;
-    }
+    const position = getRandomUnblockedPoint(this, now);
     if (!position) {
       throw new Error(`Failed to find a free position!`);
     }

@@ -30,7 +30,7 @@ export default defineSchema({
     // Tile size in pixels (assume square)
     tileDim: v.number(),
     bgTiles: v.array(v.array(v.array(v.number()))),
-    objectTiles: v.array(v.array(v.number())),
+    objectTiles: v.array(v.array(v.array(v.number()))),
   }),
 
   music: defineTable({

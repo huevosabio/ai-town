@@ -137,7 +137,9 @@ export function blockedWithPositions(position: Point, otherPositions: Point[], m
   if (position.x < 0 || position.y < 0 || position.x >= map.width || position.y >= map.height) {
     return 'out of bounds';
   }
-  if (map.objectTiles[Math.floor(position.y)][Math.floor(position.x)] !== -1) {
+  if ((map.objectTiles[0][Math.floor(position.x)][Math.floor(position.y)]  ||
+       map.objectTiles[1][Math.floor(position.x)][Math.floor(position.y)]) 
+      !== -1) {
     return 'world blocked';
   }
   for (const otherPosition of otherPositions) {
@@ -146,4 +148,30 @@ export function blockedWithPositions(position: Point, otherPositions: Point[], m
     }
   }
   return null;
+}
+
+export function getRandomUnblockedPoint(game: AiTown, now: number, playerId?: Id<'players'>): Point | null {
+  const unblockedPoints: Point[] = [];
+
+  for (let x = 0; x < game.map.width; x++) {
+    for (let y = 0; y < game.map.height; y++) {
+      if (
+        (
+          game.map.objectTiles[0][x][y] || game.map.objectTiles[1][x][y]
+        ) === -1
+      ) {
+        const point: Point = { x, y };
+        if (!blocked(game, now, point, playerId)) {
+          unblockedPoints.push(point);
+        }
+      }
+    }
+  }
+
+  if (unblockedPoints.length === 0) {
+    return null; // No unblocked points found
+  }
+
+  const randomIndex = Math.floor(Math.random() * unblockedPoints.length);
+  return unblockedPoints[randomIndex];
 }
