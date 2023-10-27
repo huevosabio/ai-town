@@ -1,5 +1,14 @@
 ## This is Ramon's log
 
+- [2023-10-27 09:59:48] The AIs still feel like they are missing intent, I am going to try to update their plan.
+  - Let them update their plan periodically (maybe after every conversation? Or maybe as part of the reflection system?)
+  - The updated plan has a hard coded part (which depends on whether they have the code, and a dynamic one which they write into).
+- [2023-10-27 09:49:42] even if both know that they are certified AIs they still do the ceremonial code sharing thing. I am just going to remove the option.
+- [2023-10-27 09:21:35] so one of the issues of the game is that AIs with the code keep reporting each other as human. The interaction is weird because they should know that the other has the code. Options:
+  - Explicitly state that the other has the code, in which case their conversation should be different?
+    - I am going to go for this for now and see how it goes. [done]
+  - Just remove the ability to report and share? [done]
+  - leave as is, but improve the memory system so that they recall when they gave / received the code from someone?
 - [2023-10-22 17:10:57] I am going to change how we log function calls, since if I want to later finetune I may want the output to match
 - [2023-10-20 13:14:21] it is sort of working, but I think when you reach a victory condition it doesn't allow you to play again. Time to debug!
   - solved it was a bug with the default flag

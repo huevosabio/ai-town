@@ -45,9 +45,9 @@ type functionObj = {
   }
 }
 
-export function getAvailableFunctions(hasSecretCode: boolean): functionObj[] {
+export function getAvailableFunctions(hasSecretCode: boolean, otherHasSecretCode: boolean): functionObj[] {
   const available_functions = [];
-  if (hasSecretCode) {
+  if (hasSecretCode && !otherHasSecretCode) {
     available_functions.push(shareSecretCode);
     available_functions.push(reportHuman);
   }

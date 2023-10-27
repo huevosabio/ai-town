@@ -37,6 +37,13 @@ export async function startConversation(
   const prompt = [
     `You are ${player.name}, and you just started a conversation with ${otherPlayer.name}.`,
   ];
+
+  // pass hint of whether both have the code or not
+  if (player.hasSecretCode && otherPlayer.hasSecretCode) {
+    prompt.push(
+      `You both are certified AIs and both have the ZetaMaster code.`
+    );
+  }
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent));
   prompt.push(...previousConversationPrompt(otherPlayer, lastConversation));
   prompt.push(...relatedMemoriesPrompt(otherPlayer, memories));
@@ -94,8 +101,14 @@ export async function continueConversation(
   const memories = await memory.searchMemories(ctx, player, embedding, 3);
   const prompt = [
     `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
-    `The conversation started at ${started.toLocaleString()}. It's now ${now.toLocaleString()}.`,
   ];
+  // pass hint of whether both have the code or not
+  if (player.hasSecretCode && otherPlayer.hasSecretCode) {
+    prompt.push(
+      `You both are certified AIs and both have the ZetaMaster code.`
+    );
+  }
+  prompt.push(`The conversation started at ${started.toLocaleString()}. It's now ${now.toLocaleString()}.`)
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent));
   prompt.push(...relatedMemoriesPrompt(otherPlayer, memories));
   prompt.push(
@@ -104,7 +117,7 @@ export async function continueConversation(
   );
   
   // available functions depend on whether the player is human and whether they have the secret code
-  const availableFunctions = getAvailableFunctions(playerHasSecretCode);
+  const availableFunctions = getAvailableFunctions(playerHasSecretCode, otherPlayer.hasSecretCode);
 
   const llmMessages: LLMMessage[] = [
     {
@@ -147,9 +160,15 @@ export async function leaveConversation(
     },
   );
   const prompt = [
-    `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
-    `You've decided to leave the question and would like to politely tell them you're leaving the conversation.`,
+    `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`
   ];
+  // pass hint of whether both have the code or not
+  if (player.hasSecretCode && otherPlayer.hasSecretCode) {
+    prompt.push(
+      `You both are certified AIs and both have the ZetaMaster code.`
+    );
+  }
+  prompt.push(`You've decided to leave the question and would like to politely tell them you're leaving the conversation.`);
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent));
   prompt.push(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
