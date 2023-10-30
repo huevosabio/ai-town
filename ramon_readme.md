@@ -1,8 +1,18 @@
 ## This is Ramon's log
 
+- [2023-10-29 19:40:19] I have implemented the reflection and replanning process, but its not perfect:
+  - plans and reflections are unnecessarily long
+  - we still have agents reflecting even after they have been booted, which means we didn't stop them correctly
+  - the plans are very vague
+  - I need to explicitly call for giving the whole plan not just the update because some plans look like an addendum
+- [2023-10-29 16:52:16] I am having a generator issue, tons of "agent generation number is not equal to ___", I need to debug this.
+  - I am going to remove the replan stuff, if the problem persist then the issue is elsewhere, if not then something in my update plan code throws the numbering off
+  - so it is that, gonna try moving it as its own action then.
 - [2023-10-27 09:59:48] The AIs still feel like they are missing intent, I am going to try to update their plan.
   - Let them update their plan periodically (maybe after every conversation? Or maybe as part of the reflection system?)
   - The updated plan has a hard coded part (which depends on whether they have the code, and a dynamic one which they write into).
+  - I am going to do this as a reflection mechanism that gets triggered every time a conversation is remembered.
+  - the function should be "replan", use the latest conversation memories and prior plans, and replan
 - [2023-10-27 09:49:42] even if both know that they are certified AIs they still do the ceremonial code sharing thing. I am just going to remove the option.
 - [2023-10-27 09:21:35] so one of the issues of the game is that AIs with the code keep reporting each other as human. The interaction is weird because they should know that the other has the code. Options:
   - Explicitly state that the other has the code, in which case their conversation should be different?

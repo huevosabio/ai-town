@@ -19,13 +19,15 @@ import {
   PLAYER_CONVERSATION_COOLDOWN,
   MESSAGE_COOLDOWN,
   MAX_CONVERSATION_MESSAGES,
+  MEMORY_LOOKBACK
 } from './constants';
 import { continueConversation, leaveConversation, startConversation } from './conversation';
 import { internal } from '../_generated/api';
-import { latestMemoryOfType, rememberConversation } from './memory';
+import { latestMemoryOfType, rememberConversation, reflectOnRecentConversations, createAndUpdatePlan } from './memory';
 import { getDefaultWorld } from '../init';
 import {stopEngine}  from '../engine/game'
 import { stopAgents } from '../agent/init';
+import { generateKey } from 'crypto';
 
 const selfInternal = internal.agent.main;
 
@@ -116,6 +118,21 @@ class Agent {
         generationNumber: this.nextGenerationNumber,
         playerId: this.player._id,
         conversationId: toRemember,
+      });
+      return this.now + ACTION_TIMEOUT;
+    }
+
+    // If we should replan, do that first.
+    if (await this.shouldReplan()) {
+      if (!this.player.pathfinding) {
+        const destination = this.wanderDestination();
+        console.log(`Wandering to ${destination} to think`);
+        await this.insertInput('moveTo', { playerId: this.player._id, destination });
+      }
+      await this.ctx.scheduler.runAfter(0, selfInternal.agentReflectAndUpdatePlan, {
+        agentId: this.agent._id,
+        generationNumber: this.nextGenerationNumber,
+        playerId: this.player._id,
       });
       return this.now + ACTION_TIMEOUT;
     }
@@ -362,6 +379,24 @@ class Agent {
     return conversationId ?? null;
   }
 
+  async shouldReplan() {
+    // check if latest reflection contains latest conversation memory
+    const reflection = await latestMemoryOfType(this.ctx.db, this.player._id, 'reflection');
+    const conversation = await latestMemoryOfType(this.ctx.db, this.player._id, 'conversation');
+    if (!reflection && conversation) {
+      return true;
+    } else if (reflection && conversation) {
+      // check if any of the related memory ids correspond to the conv id
+      const relatedMemoryIds = reflection.data.relatedMemoryIds;
+      console.log('relatedMemoryIds', relatedMemoryIds);
+      console.log('conversationId', conversation._id);
+      return !relatedMemoryIds.includes(conversation._id);
+    } else {
+      return false;
+    }
+  }
+
+
   wanderDestination() {
     // Wander someonewhere at least one tile away from the edge.
     return {
@@ -492,6 +527,40 @@ export const agentRememberConversation = internalAction({
       args.playerId,
       args.conversationId,
     );
+    await ctx.runMutation(selfInternal.scheduleNextRun, {
+      agentId: args.agentId,
+      expectedGenerationNumber: args.generationNumber,
+      nextRun: Date.now(),
+    });
+  },
+});
+
+// TODO: FILL THIS IN
+export const agentReflectAndUpdatePlan = internalAction({
+  args: {
+    agentId: v.id('agents'),
+    generationNumber: v.number(),
+    playerId: v.id('players'),
+  },
+  handler: async (ctx, args) => {
+    // Reflect on recent conversations
+    const reflection = (await reflectOnRecentConversations(
+      ctx,
+      args.agentId,
+      args.generationNumber,
+      args.playerId,
+      MEMORY_LOOKBACK
+    ))!;
+    // Craft new plan based on past plan and reflection, and update
+    const newPlan = await createAndUpdatePlan(
+      ctx,
+      args.agentId,
+      args.generationNumber,
+      args.playerId,
+      reflection
+    );
+
+    // Schedule the next run
     await ctx.runMutation(selfInternal.scheduleNextRun, {
       agentId: args.agentId,
       expectedGenerationNumber: args.generationNumber,

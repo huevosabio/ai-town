@@ -40,6 +40,10 @@ const memoryFields = {
       type: v.literal('reflection'),
       relatedMemoryIds: v.array(v.id('memories')),
     }),
+    v.object({
+      type: v.literal('plan'),
+      relatedMemoryIds: v.array(v.id('memories')),
+    }),
   ),
 };
 export type Memory = Doc<'memories'>;
@@ -153,6 +157,205 @@ export const loadConversation = internalQuery({
       conversation,
       otherPlayer,
     };
+  },
+});
+
+
+
+export async function reflectOnRecentConversations(
+  ctx: ActionCtx,
+  agentId: Id<'agents'>,
+  generationNumber: number,
+  playerId: Id<'players'>,
+  memoryLookback: number,
+) {
+  const memories = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    playerId,
+    n: memoryLookback,
+    type: 'conversation',
+  });
+  if (!memories.length) {
+    return;
+  }
+  const now = Date.now();
+
+  // Set the `isThinking` flag and schedule a function to clear it after 60s. We'll
+  // also clear the flag in `insertMemory` below to stop thinking early on success.
+  await ctx.runMutation(selfInternal.startThinking, { agentId, now });
+  await ctx.scheduler.runAfter(ACTION_TIMEOUT, selfInternal.clearThinking, { agentId, since: now });
+
+  // get player and agent
+  const { player } = await ctx.runQuery(selfInternal.loadPlayer, { playerId });
+  const { agent } = await ctx.runQuery(selfInternal.loadAgent, { agentId });
+  const currentPlan = agent.plan;
+  // use past memories and current plan to reflect on recent conversations and key takeaways
+  const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
+  const plan_prompt = `This is your current plan: ${currentPlan}`;
+  const memories_prompt = memories.map((memory) => memory.description).join('\n');
+  console.log('memories prompt', memories_prompt);
+  const memory_base_prompt = `These are the summaries of your latest conversations: ${memories_prompt}`;
+  const request_prompt = `I would like you to reflect on these conversations.
+  What are the key takeaways from these conversations?
+  How do they relate to your plan?
+  What are the next steps you should take?
+  `;
+
+  const prompt = base_prompt + plan_prompt + memory_base_prompt + request_prompt;
+  
+  const llmMessages: LLMMessage[] = [
+    {
+      role: 'user',
+      content: prompt,
+    },
+  ];
+  const { content } = await chatCompletionWithLogging({
+    messages: llmMessages,
+    max_tokens: 500,
+    game_id: player.worldId,
+    character_id: player._id,
+    target_char_ids: [],
+    call_type: 'reflect_on_recent_conversations'
+  });
+  const importance = await calculateImportance(player, content);
+  const { embedding } = await fetchEmbedding(content);
+  const description = `Reflection on recent conversations at  ${now.toLocaleString()}: ${content}`;
+  await ctx.runMutation(selfInternal.insertMemory, {
+    agentId,
+    generationNumber,
+
+    playerId,
+    description,
+    importance,
+    lastAccess: now,
+    data: {
+      type: 'reflection',
+      relatedMemoryIds: memories.map((memory) => memory._id),
+    },
+    embedding,
+  });
+  return content;
+}
+
+export async function createAndUpdatePlan(
+  ctx: ActionCtx,
+  agentId: Id<'agents'>,
+  generationNumber: number,
+  playerId: Id<'players'>,
+  reflection: string,
+) {
+  const reflections = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    playerId,
+    n: 1,
+    type: 'reflection',
+  });
+  if (!reflections.length) {
+    return;
+  }
+  const now = Date.now();
+  // Set the `isThinking` flag and schedule a function to clear it after 60s. We'll
+  // also clear the flag in `insertMemory` below to stop thinking early on success.
+  await ctx.runMutation(selfInternal.startThinking, { agentId, now });
+  await ctx.scheduler.runAfter(ACTION_TIMEOUT, selfInternal.clearThinking, { agentId, since: now });
+
+  // get player and agent
+  const { player } = await ctx.runQuery(selfInternal.loadPlayer, { playerId });
+  const { agent } = await ctx.runQuery(selfInternal.loadAgent, { agentId });
+  const currentPlan = agent.plan;
+  // use past memories and current plan to reflect on recent conversations and key takeaways
+  const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
+  const plan_prompt = `This is your current plan: ${currentPlan}`;
+  const reflection_prompt = `These are your reflections on your recent conversations: ${reflection}`;
+  const request_prompt = `I would like you to update your plan based on these reflections.
+  Keep as much of the orginal plan as possible. Be specific and concise.
+  What are immidiate actions to take? What are long term goals?
+  `;
+
+  const prompt = base_prompt + plan_prompt + reflection_prompt + request_prompt;
+  const llmMessages: LLMMessage[] = [
+    {
+      role: 'user',
+      content: prompt,
+    },
+  ];
+  const { content } = await chatCompletionWithLogging({
+    messages: llmMessages,
+    max_tokens: 500,
+    game_id: player.worldId,
+    character_id: player._id,
+    target_char_ids: [],
+    call_type: 'update_plan'
+  });
+  const importance = await calculateImportance(player, content);
+  const { embedding } = await fetchEmbedding(content);
+  const description = `New plan at  ${now.toLocaleString()} based on recent conversations: ${content}`;
+  await ctx.runMutation(selfInternal.insertMemory, {
+    agentId,
+    generationNumber,
+
+    playerId,
+    description,
+    importance,
+    lastAccess: now,
+    data: {
+      type: 'plan',
+      relatedMemoryIds: reflections.map((r) => r._id),
+    },
+    embedding,
+  });
+  await ctx.runMutation(selfInternal.updatePlan, { agentId, content });
+  return content;
+}
+
+export const updatePlan = internalMutation({
+  args: {
+    agentId: v.id('agents'),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.agentId, { plan: args.content });
+  },
+});
+
+export const loadPlayer = internalQuery({
+  args: {
+    playerId: v.id('players'),
+  },
+  handler: async (ctx, args) => {
+    const player = await ctx.db.get(args.playerId);
+    if (!player) {
+      throw new Error(`Player ${args.playerId} not found`);
+    }
+    return { player };
+  },
+});
+
+export const loadAgent = internalQuery({
+  args: {
+    agentId: v.id('agents'),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent) {
+      throw new Error(`Agent ${args.agentId} not found`);
+    }
+    return { agent };
+  },
+});
+
+export const recallRecentMemories = internalQuery({
+  args: {
+    playerId: v.id('players'),
+    n: v.number(),
+    type: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const memories = await ctx.db
+      .query('memories')
+      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
+      .filter((q) => q.eq(q.field('data.type'), args.type))
+      .order('desc')
+      .take(args.n);
+    return memories;
   },
 });
 
