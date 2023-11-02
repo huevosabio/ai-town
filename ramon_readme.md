@@ -1,10 +1,25 @@
 ## This is Ramon's log
 
+- [2023-10-30 14:06:24] ok, now I need to record a memory every time that someone gets reported / code shared
+  - I need to first clean when we are able to report / share, seems like we are not allowing it at the beginning of the conversation
+  - I need to then add it as a side effect (?) or as an action to do for the agent to do? Oh, maybe I can make it a check in the agent loop
+  - then we need to surface the action in the conversation whenever it is relevant, so this needs to be checked as well
+- [2023-10-30 12:27:05] the issue with the agents that keep pinging the schedule is that disabling a player does not stop the agent, so I need to _also_ stop the agent. [done]
+- [2023-10-30 07:48:03] Issues:
+  - I need to pass actions as memories, for example reporting / sharing, eavesdropping, etc.
+  - They revert to bloviating when the plan is updated, instead of intently asking for the code
+- [2023-10-30 06:39:32] I have the issue where they are not updating the plans... I think is a timeout issue I am going to increase the timeout for it
+  - I am still seeing it...
+  - Going to check if the plan is actually being written 
+  - ok, so the issue is indeed a timeout [done]
+  - yes it was a timeout, I solved that but now I need to make it async, and I don't know if that actually works [done]
+- [2023-10-30 06:07:39] back at it, trying to address the reflect and replan process
 - [2023-10-29 19:40:19] I have implemented the reflection and replanning process, but its not perfect:
   - plans and reflections are unnecessarily long
   - we still have agents reflecting even after they have been booted, which means we didn't stop them correctly
   - the plans are very vague
   - I need to explicitly call for giving the whole plan not just the update because some plans look like an addendum
+  - the time stamps on the reflection and replaninng are in unix not in date strings [done]
 - [2023-10-29 16:52:16] I am having a generator issue, tons of "agent generation number is not equal to ___", I need to debug this.
   - I am going to remove the replan stuff, if the problem persist then the issue is elsewhere, if not then something in my update plan code throws the numbering off
   - so it is that, gonna try moving it as its own action then.

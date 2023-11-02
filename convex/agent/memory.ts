@@ -192,9 +192,8 @@ export async function reflectOnRecentConversations(
   const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
   const plan_prompt = `This is your current plan: ${currentPlan}`;
   const memories_prompt = memories.map((memory) => memory.description).join('\n');
-  console.log('memories prompt', memories_prompt);
   const memory_base_prompt = `These are the summaries of your latest conversations: ${memories_prompt}`;
-  const request_prompt = `I would like you to reflect on these conversations.
+  const request_prompt = `\n I would like you to reflect on these conversations.
   What are the key takeaways from these conversations?
   How do they relate to your plan?
   What are the next steps you should take?
@@ -218,7 +217,7 @@ export async function reflectOnRecentConversations(
   });
   const importance = await calculateImportance(player, content);
   const { embedding } = await fetchEmbedding(content);
-  const description = `Reflection on recent conversations at  ${now.toLocaleString()}: ${content}`;
+  const description = `Reflection on recent conversations at  ${new Date(now).toLocaleString()}: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
     generationNumber,
@@ -266,8 +265,8 @@ export async function createAndUpdatePlan(
   const plan_prompt = `This is your current plan: ${currentPlan}`;
   const reflection_prompt = `These are your reflections on your recent conversations: ${reflection}`;
   const request_prompt = `I would like you to update your plan based on these reflections.
-  Keep as much of the orginal plan as possible. Be specific and concise.
-  What are immidiate actions to take? What are long term goals?
+  Write out your full updated plan. Keep as much of the orginal plan as possible.
+  Be very specific and very concise, what are immidiate actions to take?
   `;
 
   const prompt = base_prompt + plan_prompt + reflection_prompt + request_prompt;
@@ -287,7 +286,7 @@ export async function createAndUpdatePlan(
   });
   const importance = await calculateImportance(player, content);
   const { embedding } = await fetchEmbedding(content);
-  const description = `New plan at  ${now.toLocaleString()} based on recent conversations: ${content}`;
+  const description = `New plan at  ${new Date(now).toLocaleString()} based on recent conversations: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
     generationNumber,

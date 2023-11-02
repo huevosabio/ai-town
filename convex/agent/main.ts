@@ -134,7 +134,7 @@ class Agent {
         generationNumber: this.nextGenerationNumber,
         playerId: this.player._id,
       });
-      return this.now + ACTION_TIMEOUT;
+      return this.now + 3 * ACTION_TIMEOUT;
     }
 
     const playerConversation = await loadConversationState(this.ctx, {
@@ -832,6 +832,7 @@ export const bootAIIfReported = internalMutation({
     if (player && !player.hasSecretCode && typeof player.human !== 'string') {
       // AI player is booted
       console.log(`AI Reported, Booting AI ${player._id}...`);
+      // removes the player from the world
       await sendInput(ctx, {
         worldId: player.worldId,
         name: 'leave',
@@ -839,6 +840,16 @@ export const bootAIIfReported = internalMutation({
           playerId: player._id,
         },
       });
+      // stops the agent
+      const agent = await ctx.db
+        .query('agents')
+        .withIndex('playerId', (q) => q.eq('playerId', player._id))
+        .first();
+      if (!agent) {
+        throw new Error(`Invalid agent ID: ${agent._id}`);
+      }
+      // this one trick should stop the agent
+      await ctx.db.patch(agent._id, { generationNumber: agent.generationNumber + 1 });
     } else {
       // continue game
     }
