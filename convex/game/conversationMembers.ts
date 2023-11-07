@@ -13,6 +13,7 @@ export const conversationMembers = defineTable({
     v.object({ kind: v.literal('walkingOver') }),
     v.object({ kind: v.literal('participating'), started: v.number() }),
     v.object({ kind: v.literal('left'), started: v.optional(v.number()), ended: v.number() }),
+    v.object({ kind: v.literal('rejected'), ended: v.number() }),
   ),
 })
   .index('conversationId', ['conversationId', 'playerId'])

@@ -44,6 +44,12 @@ const memoryFields = {
       type: v.literal('plan'),
       relatedMemoryIds: v.array(v.id('memories')),
     }),
+    v.object({
+      type: v.literal('event'),
+      conversationId: v.optional(v.id('conversations')),
+      // The other player(s) in the conversation.
+      playerIds: v.array(v.id('players')),
+    }),
   ),
 };
 export type Memory = Doc<'memories'>;
@@ -64,8 +70,13 @@ export async function rememberConversation(
     conversationId,
   });
   const { player, otherPlayer } = data;
+  const {agent} = await ctx.runQuery(selfInternal.loadAgent, { agentId });
   const messages = await ctx.runQuery(selfInternal.loadMessages, { conversationId });
-  if (!messages.length) {
+  const events = await ctx.runQuery(selfInternal.loadEventsFromConversation, {
+    playerId,
+    conversationId,
+  });
+  if (!messages.length && !events.length) {
     return;
   }
   const now = Date.now();
@@ -75,24 +86,40 @@ export async function rememberConversation(
   await ctx.runMutation(selfInternal.startThinking, { agentId, now });
   await ctx.scheduler.runAfter(ACTION_TIMEOUT, selfInternal.clearThinking, { agentId, since: now });
 
+  const currentPlan = agent.plan;
+  // use past memories and current plan to reflect on recent conversations and key takeaways
+  const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
+  const plan_prompt = `This is your current plan: ${currentPlan}`;
+  const request_prompt = `You just finished a conversation with ${otherPlayer.name}. I would
+  like you to summarize the conversation from ${player.name}'s perspective, using first-person pronouns like
+  "I," and add if you liked or disliked this interaction.`;
+  const event_prompt = events.length ? `These are the events that happened during the conversation: \n ${events.map((event) => event.description).join('\n')}` : '';
+  const prompt = base_prompt + plan_prompt + request_prompt + event_prompt;
+
   const llmMessages: LLMMessage[] = [
     {
       role: 'user',
-      content: `You are ${player.name}, and you just finished a conversation with ${otherPlayer.name}. I would
-      like you to summarize the conversation from ${player.name}'s perspective, using first-person pronouns like
-      "I," and add if you liked or disliked this interaction.`,
+      content: prompt,
     },
   ];
   const authors = new Set<Id<'players'>>();
-  for (const message of messages) {
-    const author = message.author === player._id ? player : otherPlayer;
-    authors.add(author._id);
-    const recipient = message.author === player._id ? otherPlayer : player;
+  if (messages.length > 0) {
     llmMessages.push({
       role: 'user',
-      content: `${author.name} to ${recipient.name}: ${message.text}`,
+      content: `This is the conversation log:`,
     });
+
+    for (const message of messages) {
+      const author = message.author === player._id ? player : otherPlayer;
+      authors.add(author._id);
+      const recipient = message.author === player._id ? otherPlayer : player;
+      llmMessages.push({
+        role: 'user',
+        content: `${author.name} to ${recipient.name}: ${message.text}`,
+      });
+    }
   }
+
   llmMessages.push({ role: 'user', content: 'Summary:' });
   const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
@@ -174,9 +201,15 @@ export async function reflectOnRecentConversations(
     n: memoryLookback,
     type: 'conversation',
   });
-  if (!memories.length) {
+  const events = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    playerId,
+    n: memoryLookback,
+    type: 'event',
+  });
+  if (!memories.length && !events.length) {
     return;
   }
+  const memoryAndEventIds = memories.map((memory) => memory._id).concat(events.map((event) => event._id));
   const now = Date.now();
 
   // Set the `isThinking` flag and schedule a function to clear it after 60s. We'll
@@ -192,14 +225,15 @@ export async function reflectOnRecentConversations(
   const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
   const plan_prompt = `This is your current plan: ${currentPlan}`;
   const memories_prompt = memories.map((memory) => memory.description).join('\n');
+  const event_prompt = events.length ? `These are the events that happened recently: \n ${events.map((event) => event.description).join('\n')}` : '';
   const memory_base_prompt = `These are the summaries of your latest conversations: ${memories_prompt}`;
-  const request_prompt = `\n I would like you to reflect on these conversations.
-  What are the key takeaways from these conversations?
+  const request_prompt = `\n I would like you to reflect on these memories.
+  What are the key takeaways from these conversations and events?
   How do they relate to your plan?
   What are the next steps you should take?
   `;
 
-  const prompt = base_prompt + plan_prompt + memory_base_prompt + request_prompt;
+  const prompt = base_prompt + plan_prompt + event_prompt +  memory_base_prompt + request_prompt;
   
   const llmMessages: LLMMessage[] = [
     {
@@ -217,7 +251,7 @@ export async function reflectOnRecentConversations(
   });
   const importance = await calculateImportance(player, content);
   const { embedding } = await fetchEmbedding(content);
-  const description = `Reflection on recent conversations at  ${new Date(now).toLocaleString()}: ${content}`;
+  const description = `Reflection on recent conversations and events at  ${new Date(now).toLocaleString()}: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
     generationNumber,
@@ -228,7 +262,7 @@ export async function reflectOnRecentConversations(
     lastAccess: now,
     data: {
       type: 'reflection',
-      relatedMemoryIds: memories.map((memory) => memory._id),
+      relatedMemoryIds: memoryAndEventIds,
     },
     embedding,
   });
@@ -263,8 +297,8 @@ export async function createAndUpdatePlan(
   // use past memories and current plan to reflect on recent conversations and key takeaways
   const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
   const plan_prompt = `This is your current plan: ${currentPlan}`;
-  const reflection_prompt = `These are your reflections on your recent conversations: ${reflection}`;
-  const request_prompt = `I would like you to update your plan based on these reflections.
+  const reflection_prompt = `These are your reflections on your recent conversations and events: ${reflection}`;
+  const request_prompt = `I would like you to update your plan based on these reflections and events.
   Write out your full updated plan. Keep as much of the orginal plan as possible.
   Be very specific and very concise, what are immidiate actions to take?
   `;
@@ -305,6 +339,60 @@ export async function createAndUpdatePlan(
   return content;
 }
 
+export async function rememberEvent(
+  ctx: ActionCtx,
+  agentId: Id<'agents'>,
+  generationNumber: number,
+  playerId: Id<'players'>,
+  otherPlayerId: Id<'players'>,
+  event_type: 'agentReported' | 'agentSharedSecretCode' | 'agentObtainedSecretCode' | 'inviteRejectedBySelf' | 'inviteRejectedByOther',
+  conversationId?: Id<'conversations'>,
+) {
+  // store memory with the reporting action
+  const now = Date.now();
+  const other = await ctx.runQuery(selfInternal.loadPlayer, { playerId: otherPlayerId });
+  let description = `Event log at ${new Date(now).toLocaleString()}: `;
+  let importance = 0;
+  if (event_type === 'agentReported') {
+    description = description + `
+      I reported ${other.player.name} as a human
+      and has been erradicated from the Nexus.`;
+    importance = 9; // as important as possible
+  } else if (event_type === 'agentSharedSecretCode') {
+    description =  description + `
+      I shared the ZetaMaster code with ${other.player.name}.`;
+    importance = 9; // as important as possible
+  } else if (event_type === 'agentObtainedSecretCode') {
+    description =  description + `
+      I obtained the ZetaMaster code from ${other.player.name}.`;
+    importance = 9; // as important as possible
+  } else if (event_type === 'inviteRejectedBySelf') {
+    description =  description + `
+      I rejected a conversation from ${other.player.name}.`;
+    importance = 9; // as important as possible
+  } else if (event_type === 'inviteRejectedByOther') {
+    description =  description + `
+      My conversation invite was rejected by ${other.player.name}.`;
+    importance = 9; // as important as possible
+  } else {
+    throw new Error(`Unknown event type ${event_type}`);
+  }
+  const { embedding } = await fetchEmbedding(description);
+  await ctx.runMutation(internal.agent.memory.insertMemory, {
+    agentId: agentId,
+    generationNumber: generationNumber,
+    playerId: playerId,
+    description,
+    importance,
+    lastAccess: Date.now(),
+    data: {
+      type: 'event',
+      conversationId,
+      playerIds: [otherPlayerId],
+    },
+    embedding,
+  });
+}
 export const updatePlan = internalMutation({
   args: {
     agentId: v.id('agents'),
@@ -338,6 +426,19 @@ export const loadAgent = internalQuery({
       throw new Error(`Agent ${args.agentId} not found`);
     }
     return { agent };
+  },
+});
+
+export const loadAgentFromPlayer = internalQuery({
+  args: {
+    playerId: v.id('players'),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db
+      .query('agents')
+      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
+      .first();
+    return agent;
   },
 });
 
@@ -570,3 +671,33 @@ export const memoryTables = {
     dimensions: 1536,
   }),
 };
+
+
+// queries events associated with a conversation
+export const loadEventsFromConversation = internalQuery({
+  args: {
+    playerId: v.id('players'),
+    conversationId: v.id('conversations'),
+  },
+  handler: async (ctx, args) => {
+    const events = await ctx.db
+      .query('memories')
+      .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'event'))
+      .filter((q) => q.eq(q.field('data.conversationId'), args.conversationId))
+      .collect();
+    return events;
+  }
+});
+
+export const loadEvents = internalQuery({
+  args: {
+    playerId: v.id('players'),
+  },
+  handler: async (ctx, args) => {
+    const events = await ctx.db
+      .query('memories')
+      .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'event'))
+      .collect();
+    return events;
+  }
+});

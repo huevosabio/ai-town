@@ -1,9 +1,26 @@
 ## This is Ramon's log
 
+- [2023-11-07 12:59:59] Going to start the mega-merge, which will be very painfull. To do so I will first try it in a separate branch.
+- [2023-11-07 12:59:17] I had to fix some random bugs, but now rejections are recorded regardless of whether the human or the AI is the one that rejects, and the AI takes them into consideration. This is still crude but works!
+- [2023-11-06 08:54:51] resuming working on having human rejections be recorded. I think I may need to just handle this as part of the input handling, that way it covers human and agent rejections; actually no, its better to keep it as part of the agent loop; because otherwise we are putting agent logic on the game logic and we want that to be separate; I think what I am going to do is to have a "rejected" status that is like "left".
+  - I added the rejected state and the check to see if it should be remembered, it is inefficient now since it always checks all past memories, should be better;
+  - I need to add a cooldown after rejection, lol, otherwise they keep pestering [done]
+- [2023-11-05 09:20:17] I noticed a weird bug where the bots stayed in limbo after sharing the code, namely:
+  - leosky stood there doing nothing, seems like it was trying to wander? I think it was trying to reflect but the conversation was still ongoing
+- [2023-11-04 18:25:40] Going to add rejected conversations to "events", idea being that this should inform AIs when someone is avoiding it
+  - probably as a callback from reject [done]
+  - then make sure to reflect on rejected memories [done]
+  - adjust the remember conversation so that conversations that were rejected get engraved as memories (or maybe something else?) [done]
+  - you need a callback for when the human rejects
+- [2023-11-03 15:15:23] I've added the functionality for adding events to memories, including sharing/reporting events. I now want to add eavesdropping events!
+  - need to check for nearby players that are also in mid conversation
+  - then trigger memory for the eaves dropped 
+  - and trigger 'overheard' memory for the one that passed by
+- [2023-11-03 12:12:14] after a hiatus, I am back! resuming the memory stuff below
 - [2023-10-30 14:06:24] ok, now I need to record a memory every time that someone gets reported / code shared
-  - I need to first clean when we are able to report / share, seems like we are not allowing it at the beginning of the conversation
-  - I need to then add it as a side effect (?) or as an action to do for the agent to do? Oh, maybe I can make it a check in the agent loop
-  - then we need to surface the action in the conversation whenever it is relevant, so this needs to be checked as well
+  - I need to first clean when we are able to report / share, seems like we are not allowing it at the beginning of the conversation [done]
+  - I need to then add it as a side effect (?) or as an action to do for the agent to do? Oh, maybe I can make it a check in the agent loop [done]
+  - then we need to surface the action in the conversation whenever it is relevant, so this needs to be checked as well [done]
 - [2023-10-30 12:27:05] the issue with the agents that keep pinging the schedule is that disabling a player does not stop the agent, so I need to _also_ stop the agent. [done]
 - [2023-10-30 07:48:03] Issues:
   - I need to pass actions as memories, for example reporting / sharing, eavesdropping, etc.

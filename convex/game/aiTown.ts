@@ -245,7 +245,7 @@ export class AiTown extends Game<Inputs> {
         )}`,
       );
     }
-    this.stopConversation(now, conversation);
+    this.rejectConversation(now, conversation);
     return null;
   }
 
@@ -275,6 +275,14 @@ export class AiTown extends Game<Inputs> {
     for (const member of members) {
       const started = member.status.kind === 'participating' ? member.status.started : undefined;
       member.status = { kind: 'left', started, ended: now };
+    }
+  }
+
+  rejectConversation(now: number, conversation: Doc<'conversations'>) {
+    conversation.finished = now;
+    const members = this.conversationMembers.filter((m) => m.conversationId === conversation._id);
+    for (const member of members) {
+      member.status = { kind: 'rejected', ended: now };
     }
   }
 

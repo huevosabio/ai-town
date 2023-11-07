@@ -23,7 +23,13 @@ import {
 } from './constants';
 import { continueConversation, leaveConversation, startConversation } from './conversation';
 import { internal } from '../_generated/api';
-import { latestMemoryOfType, rememberConversation, reflectOnRecentConversations, createAndUpdatePlan } from './memory';
+import {
+  latestMemoryOfType,
+  rememberConversation,
+  reflectOnRecentConversations,
+  createAndUpdatePlan,
+  rememberEvent
+} from './memory';
 import { getDefaultWorld } from '../init';
 import {stopEngine}  from '../engine/game'
 import { stopAgents } from '../agent/init';
@@ -101,6 +107,26 @@ class Agent {
   }
 
   async run(): Promise<number> {
+    // check if we have a rejection to remember
+    const toRememberRejection = await this.rejectionToRemember();
+    if (toRememberRejection) {
+      // get the other player id  from the conversation
+      const members = await this.ctx.db
+        .query('conversationMembers')
+        .withIndex('conversationId', (q) => q.eq('conversationId', toRememberRejection))
+        .collect();
+      const otherPlayerId = (members.find((m) => m.playerId !== this.player._id)?.playerId)!;
+      // remember rejection
+      await this.ctx.scheduler.runAfter(0, selfInternal.rememberRejection, {
+        agentId: this.agent._id,
+        playerId: this.player._id,
+        otherPlayerId: otherPlayerId,
+        conversationId: toRememberRejection,
+        generationNumber: this.nextGenerationNumber,
+        rejectedBySelf: false,
+      });
+    }
+
     const toRemember = await this.conversationToRemember();
 
     // If we have a conversation to remember, do that first.
@@ -214,6 +240,17 @@ class Agent {
             playerId: this.player._id,
             conversationId: playerConversation._id,
           });
+          // handle here the rememberRejection
+          await this.ctx.scheduler.runAfter(0, selfInternal.rememberRejection, {
+            agentId: this.agent._id,
+            playerId: this.player._id,
+            otherPlayerId: otherPlayer._id,
+            conversationId: playerConversation._id,
+            generationNumber: this.nextGenerationNumber,
+            rejectedBySelf: true,
+          });
+          
+
         }
         return this.now + INPUT_DELAY;
       }
@@ -379,18 +416,52 @@ class Agent {
     return conversationId ?? null;
   }
 
+  async rejectionToRemember() {
+    // Walk our left conversations in decreasing creation time order, skipping
+    // conversations that don't have any messages.
+    const rejectedConversations = this.ctx.db
+      .query('conversationMembers')
+      .withIndex('playerId', (q) => q.eq('playerId', this.player._id).eq('status.kind', 'rejected'))
+      .order('desc');
+    let conversationId;
+    for await (const member of rejectedConversations) {
+      // get the conversation from the id
+      const conversation = await this.ctx.db.get(member.conversationId);
+      // ignore if it was not created by this player, or convo not found
+      if (!conversation || conversation?.creator !== this.player._id) {
+        continue;
+      }
+      // now this is a conversation that was created by this player and rejected
+      // check if this rejection was logged, by serching through event memories with this conversation id
+      const memory = await this.ctx.db
+        .query('memories')
+        .withIndex('playerId', (q) => q.eq('playerId', this.player._id))
+        .filter((q) => q.eq(q.field('data.type'), 'event'))
+        .filter((q) => q.eq(q.field('data.conversationId'), member.conversationId))
+        .first();
+      if (!memory) {
+        // if no memory was found, remember this rejection
+        conversationId = member.conversationId;
+      }
+      break;
+    }
+    return conversationId ?? null;
+  }
+
   async shouldReplan() {
     // check if latest reflection contains latest conversation memory
     const reflection = await latestMemoryOfType(this.ctx.db, this.player._id, 'reflection');
     const conversation = await latestMemoryOfType(this.ctx.db, this.player._id, 'conversation');
-    if (!reflection && conversation) {
+    const event = await latestMemoryOfType(this.ctx.db, this.player._id, 'event');
+    if (!reflection && (conversation || event)) {
       return true;
-    } else if (reflection && conversation) {
+    } else if (reflection && (conversation || event)) {
       // check if any of the related memory ids correspond to the conv id
       const relatedMemoryIds = reflection.data.relatedMemoryIds;
-      console.log('relatedMemoryIds', relatedMemoryIds);
-      console.log('conversationId', conversation._id);
-      return !relatedMemoryIds.includes(conversation._id);
+      return !(
+        (conversation && relatedMemoryIds.includes(conversation._id)) || 
+        (event && relatedMemoryIds.includes(event._id))
+      );
     } else {
       return false;
     }
@@ -427,7 +498,8 @@ class Agent {
       let lastConversationWithPlayer: (Doc<'conversations'> & { playerLeft: number }) | null = null;
       const members = this.ctx.db
         .query('conversationMembers')
-        .withIndex('playerId', (q) => q.eq('playerId', this.player._id).eq('status.kind', 'left'));
+        .withIndex('playerId', (q) => q.eq('playerId', this.player._id))
+        .filter((q) => q.or(q.eq(q.field('status.kind'), 'left'), q.eq(q.field('status.kind'), 'rejected')));
       for await (const member of members) {
         const playerMember = await this.ctx.db
           .query('conversationMembers')
@@ -440,8 +512,8 @@ class Agent {
           if (!conversation) {
             throw new Error(`Invalid conversation ID: ${playerMember.conversationId}`);
           }
-          if (playerMember.status.kind !== 'left') {
-            throw new Error(`Conversation ${conversation._id} is not left`);
+          if ((playerMember.status.kind !== 'left') && (playerMember.status.kind !== 'rejected')) {
+            throw new Error(`Conversation ${conversation._id} is not terminated`);
           }
           lastConversationWithPlayer = { playerLeft: playerMember.status.ended, ...conversation };
         }
@@ -535,7 +607,6 @@ export const agentRememberConversation = internalAction({
   },
 });
 
-// TODO: FILL THIS IN
 export const agentReflectAndUpdatePlan = internalAction({
   args: {
     agentId: v.id('agents'),
@@ -642,6 +713,16 @@ export const agentContinueConversation = internalAction({
         await ctx.runMutation(selfInternal.bootAIIfReported, {
           playerId: args.otherPlayerId,
         });
+        // the reporter should store this action as a memory
+        await rememberEvent(
+          ctx,
+          args.agentId,
+          args.generationNumber,
+          args.playerId,
+          args.otherPlayerId,
+          'agentReported',
+          args.conversationId,
+        )
       }
       else if (functionCallName === 'shareSecretCode') {
         await ctx.runMutation(selfInternal.updatePlayerSecretCode, {
@@ -651,6 +732,33 @@ export const agentContinueConversation = internalAction({
         await ctx.runMutation(selfInternal.stopIfHumanVictory, {
           playerId: args.otherPlayerId,
         });
+        // both players should store this action as a memory
+        // first store for the sharer
+        await rememberEvent(
+          ctx,
+          args.agentId,
+          args.generationNumber,
+          args.playerId,
+          args.otherPlayerId,
+          'agentSharedSecretCode',
+          args.conversationId,
+        )
+        // now for the receiver
+        const otherAgent = await ctx.runQuery(
+          internal.agent.memory.loadAgentFromPlayer,
+          { playerId: args.otherPlayerId }
+        );
+        if (otherAgent) {
+          await rememberEvent(
+            ctx,
+            otherAgent._id,
+            otherAgent.generationNumber,
+            args.otherPlayerId,
+            args.playerId,
+            'agentObtainedSecretCode',
+            args.conversationId,
+          )
+        }
       }
     }
     await ctx.runMutation(selfInternal.scheduleNextRun, {
@@ -846,12 +954,46 @@ export const bootAIIfReported = internalMutation({
         .withIndex('playerId', (q) => q.eq('playerId', player._id))
         .first();
       if (!agent) {
-        throw new Error(`Invalid agent ID: ${agent._id}`);
+        throw new Error(`No agent found for player ID: ${player._id}`);
       }
       // this one trick should stop the agent
       await ctx.db.patch(agent._id, { generationNumber: agent.generationNumber + 1 });
     } else {
       // continue game
+    }
+  },
+});
+
+export const rememberRejection = internalAction({
+  args: {
+    agentId: v.id('agents'),
+    playerId: v.id('players'),
+    otherPlayerId: v.id('players'),
+    conversationId: v.id('conversations'),
+    generationNumber: v.number(),
+    rejectedBySelf: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    if (args.rejectedBySelf) {
+      await rememberEvent(
+        ctx,
+        args.agentId,
+        args.generationNumber,
+        args.playerId,
+        args.otherPlayerId,
+        'inviteRejectedBySelf',
+        args.conversationId,
+      )
+    } else {
+      await rememberEvent(
+        ctx,
+        args.agentId,
+        args.generationNumber,
+        args.playerId,
+        args.otherPlayerId,
+        'inviteRejectedByOther',
+        args.conversationId,
+      )
     }
   },
 });
