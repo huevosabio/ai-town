@@ -133,7 +133,7 @@ export const agentGenerateMessage = internalAction({
         case 'shareSecretCode':
           await ctx.runMutation(internal.aiTown.agentOperations.updatePlayerSecretCode, {
             worldId: args.worldId,
-            playerId: args.playerId,
+            playerId: args.otherPlayerId,
             hasSecretCode: true,
           });
           // both players should store this action as a memory
@@ -215,7 +215,7 @@ export const agentDoSomething = internalAction({
       } else {
         // TODO: have LLM choose the activity & emoji
         const activity = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
-        await sleep(Math.random() * 1000);
+        await sleep(Math.random() * 10);
         await ctx.runMutation(api.aiTown.main.sendInput, {
           worldId: args.worldId,
           name: 'finishDoSomething',

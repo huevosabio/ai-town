@@ -56,7 +56,7 @@ export const AGENT_WAKEUP_THRESHOLD = 1000;
 export const VACUUM_MAX_AGE = 2 * 7 * 24 * 60 * 60 * 1000;
 export const DELETE_BATCH_SIZE = 64;
 
-export const HUMAN_IDLE_TOO_LONG = 5 * 60 * 1000;
+export const HUMAN_IDLE_TOO_LONG = 50 * 60 * 1000;
 
 export const ACTIVITIES = [
   { description: 'reading a book', emoji: '📖', duration: 60_000 },

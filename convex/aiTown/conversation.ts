@@ -199,7 +199,7 @@ export class Conversation {
         agent.toRemember = this.id;
         agent.toReplan = true;
       }
-      if (agent && reason === 'rejected' && member.status.kind === 'invited') {
+      if (agent && reason === 'rejected' && playerId !== byId) {
         console.log('rejection, setting toRememberRejection');
         agent.toRememberRejection = {
           conversationId: this.id,
