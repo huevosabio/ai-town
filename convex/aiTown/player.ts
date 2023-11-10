@@ -324,4 +324,34 @@ export const playerInputs = {
       return null;
     },
   }),
+  updateSecretCode: inputHandler({
+    args: {
+      playerId,
+      hasSecretCode: v.boolean(),
+    },
+    handler: (game, now, args) => {
+      const playerId = parseGameId('players', args.playerId);
+      const player = game.world.players.get(playerId);
+      if (!player) {
+        throw new Error(`Invalid player ID ${playerId}`);
+      }
+      player.hasSecretCode = args.hasSecretCode;
+      return null;
+    }
+  }),
+  updateReportedAsHuman: inputHandler({
+    args: {
+      playerId,
+      reportedAsHuman: v.boolean(),
+    },
+    handler: (game, now, args) => {
+      const playerId = parseGameId('players', args.playerId);
+      const player = game.world.players.get(playerId);
+      if (!player) {
+        throw new Error(`Invalid player ID ${playerId}`);
+      }
+      player.reportedAsHuman = args.reportedAsHuman;
+      return null;
+    }
+  }),
 };

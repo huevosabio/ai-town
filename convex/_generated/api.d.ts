@@ -35,6 +35,7 @@ import type * as aiTown_player from "../aiTown/player";
 import type * as aiTown_playerDescription from "../aiTown/playerDescription";
 import type * as aiTown_world from "../aiTown/world";
 import type * as aiTown_worldMap from "../aiTown/worldMap";
+import type * as aiTown_zaranovaLogic from "../aiTown/zaranovaLogic";
 import type * as constants from "../constants";
 import type * as crons from "../crons";
 import type * as engine_abstractGame from "../engine/abstractGame";
@@ -91,6 +92,7 @@ declare const fullApi: ApiFromModules<{
   "aiTown/playerDescription": typeof aiTown_playerDescription;
   "aiTown/world": typeof aiTown_world;
   "aiTown/worldMap": typeof aiTown_worldMap;
+  "aiTown/zaranovaLogic": typeof aiTown_zaranovaLogic;
   constants: typeof constants;
   crons: typeof crons;
   "engine/abstractGame": typeof engine_abstractGame;

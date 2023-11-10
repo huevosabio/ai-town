@@ -1,3 +1,5 @@
+'use node';
+
 import { v } from 'convex/values';
 import { internalAction, internalMutation, internalQuery } from '../_generated/server';
 import { WorldMap, serializedWorldMap } from './worldMap';
@@ -103,10 +105,13 @@ export const agentGenerateMessage = internalAction({
     if (functionCallName) {
       switch (functionCallName) {
         case 'reportHuman':
-          await ctx.runMutation(internal.aiTown.agentOperations.reportPlayerAsHuman, {
+          await ctx.runMutation(api.aiTown.main.sendInput, {
             worldId: args.worldId,
-            playerId: args.playerId,
-            reportedAsHuman: true,
+            name: 'updateReportedAsHuman',
+            args: {
+              playerId: args.otherPlayerId,
+              reportedAsHuman: true,
+            },
           });
           // remember that you reported this player as human
           await rememberEvent(
@@ -120,21 +125,24 @@ export const agentGenerateMessage = internalAction({
           )
           // stop if this is a human
           // this should be a human
-          await ctx.runMutation(internal.aiTown.agentOperations.stopIfHumanReported, {
+          await ctx.runMutation(internal.aiTown.zaranovaLogic.stopIfHumanReported, {
             worldId: args.worldId,
             playerId: args.otherPlayerId,
           });
           // otherwise boot if its an ai
-          await ctx.runMutation(internal.aiTown.agentOperations.bootAIIfReported, {
+          await ctx.runMutation(internal.aiTown.zaranovaLogic.bootAIIfReported, {
             worldId: args.worldId,
             playerId: args.otherPlayerId,
           });
           break;
         case 'shareSecretCode':
-          await ctx.runMutation(internal.aiTown.agentOperations.updatePlayerSecretCode, {
+          await ctx.runMutation(api.aiTown.main.sendInput, {
             worldId: args.worldId,
-            playerId: args.otherPlayerId,
-            hasSecretCode: true,
+            name: 'updateSecretCode',
+            args: {
+              playerId: args.otherPlayerId,
+              hasSecretCode: true,
+            },
           });
           // both players should store this action as a memory
           // first store for the sharer
@@ -149,7 +157,7 @@ export const agentGenerateMessage = internalAction({
           )
           // now for the receiver
           const otherAgent = await ctx.runQuery(
-            internal.aiTown.agentOperations.loadAgentFromPlayer, {
+            internal.aiTown.zaranovaLogic.loadAgentFromPlayer, {
               worldId: args.worldId,
               playerId: args.otherPlayerId
             }
@@ -167,7 +175,7 @@ export const agentGenerateMessage = internalAction({
             )
           } else {
             // this should be a human
-            await ctx.runMutation(internal.aiTown.agentOperations.stopIfHumanVictory, {
+            await ctx.runMutation(internal.aiTown.zaranovaLogic.stopIfHumanVictory, {
               worldId: args.worldId,
               playerId: args.otherPlayerId,
             });
@@ -333,146 +341,6 @@ export const agentRememberRejection = internalAction({
         operationId: args.operationId,
       },
     });
-  },
-});
-
-export const updatePlayerSecretCode = internalMutation({
-  args: {
-    worldId: v.id('worlds'),
-    playerId,
-    hasSecretCode: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    const player = world.players.find((p) => p.id === args.playerId);
-    if (!player) {
-      throw new Error(`Invalid player ID: ${args.playerId}`);
-    }
-    player.hasSecretCode = args.hasSecretCode;
-  },
-});
-
-export const reportPlayerAsHuman = internalMutation({
-  args: {
-    worldId: v.id('worlds'),
-    playerId,
-    reportedAsHuman: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    const player = world.players.find((p) => p.id === args.playerId);
-    if (!player) {
-      throw new Error(`Invalid player ID: ${args.playerId}`);
-    }
-    player.reportedAsHuman = args.reportedAsHuman;
-  },
-});
-
-export const loadAgentFromPlayer = internalQuery({
-  args: {
-    worldId: v.id('worlds'),
-    playerId,
-  },
-  handler: async (ctx, args) => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    const agent = world.agents.find((a) => a.playerId === args.playerId);
-    return agent;
-  },
-});
-
-export const stopIfHumanVictory = internalMutation({
-  args: {
-    worldId: v.id('worlds'),
-    playerId,
-  },
-  handler: async (ctx, args) => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    // check if player is human
-    const player = world.players.find((p) => p.id === args.playerId);
-    if (!player) {
-      throw new Error(`Invalid player ID: ${args.playerId}`);
-    }
-    if (player?.human) {
-      // stop game, the player won
-      const worldStatus = await loadWorldStatus(ctx.db, args.worldId);
-      const engine = await ctx.db.get(worldStatus.engineId);
-      if (!worldStatus) {
-        throw new Error('World is undefined');
-      }
-      console.log(`Human Victory! Stopping engine...`);
-      await ctx.db.patch(worldStatus._id, { status: 'stoppedByHumanVictory' });
-      await stopEngine(ctx, args.worldId);
-    } else {
-      // continue game
-    }
-  },
-});
-
-export const stopIfHumanReported = internalMutation({
-  args: {
-    worldId: v.id('worlds'),
-    playerId,
-  },
-  handler: async (ctx, args) => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    // check if player is human
-    const player = world.players.find((p) => p.id === args.playerId);
-    if (!player) {
-      throw new Error(`Invalid player ID: ${args.playerId}`);
-    }
-    if (player?.human) {
-      // stop game, the player lost
-      const worldStatus = await loadWorldStatus(ctx.db, args.worldId);
-      const engine = await ctx.db.get(worldStatus.engineId);
-      if (!worldStatus) {
-        throw new Error('World is undefined');
-      }
-      console.log(`Human Defeat! Stopping engine...`);
-      await ctx.db.patch(worldStatus._id, { status: 'stoppedByHumanCaught' });
-      await stopEngine(ctx, args.worldId);
-    } else {
-      // continue game
-    }
-  },
-});
-
-export const bootAIIfReported = internalMutation({
-  args: {
-    worldId: v.id('worlds'),
-    playerId,
-  },
-  handler: async (ctx, args) => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    // check if player is human
-    const player = world.players.find((p) => p.id === args.playerId);
-    if (player && !player.hasSecretCode && typeof player.human !== 'string') {
-      // AI player is booted
-      console.log(`AI Reported, Booting AI ${player.id}...`);
-      // removes the player from the world
-      await insertInput(ctx, world._id, 'leave', {
-        playerId: args.playerId,
-      });
-    } else {
-      // continue game
-    }
   },
 });
 

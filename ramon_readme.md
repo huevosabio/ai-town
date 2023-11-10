@@ -1,5 +1,8 @@
 ## This is Ramon's log
 
+- [2023-11-10 10:28:10] never mind the share code functionality isn't working [done]
+  - we need to update player state via input handlers
+  - it works now!
 - [2023-11-10 10:25:02] the game is in an ok condition, and the functionality is there, but I did see some issues
 - [2023-11-10 07:42:55] there are two janequants, woups!
   - lol and we share the same character! so I need to _not_ create a character when the human is created
