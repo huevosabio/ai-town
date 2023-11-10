@@ -1,5 +1,14 @@
 ## This is Ramon's log
 
+- [2023-11-09 15:02:56] this is a very long merge, painful
+  - sorted out the memory clashes
+  - sorted out some random clashes
+  - sorted out the remember rejection stuff
+  - working on the replanning; I am going to make it such that after every conversation you have to replan, similar to remember; super inefficient but will come back to it [done]
+  - I don't know what is of the status of conversation members schema, is that a thing? , will check later; ah! so they just don't exist, they get deleted [done]
+  - this one is tricky, I need to set the game ending conditions again
+     - I am not super familiar with how the system _actually_ works so I am assuming setting a variable propagates? 
+  - ok I think I have the game conditions set, at least the function calls
 - [2023-11-07 12:59:59] Going to start the mega-merge, which will be very painfull. To do so I will first try it in a separate branch.
 - [2023-11-07 12:59:17] I had to fix some random bugs, but now rejections are recorded regardless of whether the human or the AI is the one that rejects, and the AI takes them into consideration. This is still crude but works!
 - [2023-11-06 08:54:51] resuming working on having human rejections be recorded. I think I may need to just handle this as part of the input handling, that way it covers human and agent rejections; actually no, its better to keep it as part of the agent loop; because otherwise we are putting agent logic on the game logic and we want that to be separate; I think what I am going to do is to have a "rejected" status that is like "left".

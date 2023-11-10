@@ -1,29 +1,21 @@
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { internalMutation, mutation, query } from './_generated/server';
 import { characters } from '../data/characters';
-import { sendInput } from './game/main';
-import { IDLE_WORLD_TIMEOUT } from './constants';
-import { kickAgents, stopAgents } from './agent/init';
-import { Doc, Id } from './_generated/dataModel';
-import { internal } from './_generated/api';
-import { startEngine, stopEngine } from './engine/game';
+import { insertInput } from './aiTown/insertInput';
+import { IDLE_WORLD_TIMEOUT, WORLD_HEARTBEAT_INTERVAL } from './constants';
+import { playerId } from './aiTown/ids';
+import { startEngine, stopEngine } from './aiTown/main';
+import { engineInsertInput } from './engine/abstractGame';
 
-export const defaultWorld = query({
+export const defaultWorldStatus = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    const world = await ctx.db
-      .query('worlds')
+    const worldStatus = await ctx.db
+      .query('worldStatus')
       .filter((q) => q.eq(q.field('userId'), identity?.tokenIdentifier))
       .filter((q) => q.eq(q.field('isDefault'), true))
       .first();
-    if (!world) {
-      return null;
-    }
-    const map = await ctx.db.get(world.mapId);
-    if (!map) {
-      throw new Error(`Invalid map ID: ${world.mapId}`);
-    }
-    return { map, ...world };
+    return worldStatus;
   },
 });
 
@@ -32,31 +24,35 @@ export const heartbeatWorld = mutation({
     worldId: v.id('worlds'),
   },
   handler: async (ctx, args) => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
+    const worldStatus = await ctx.db
+      .query('worldStatus')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .first();
+    if (!worldStatus) {
       throw new Error(`Invalid world ID: ${args.worldId}`);
     }
-    const engine = await ctx.db.get(world.engineId);
-    if (!engine) {
-      throw new Error(`Invalid engine ID: ${world.engineId}`);
-    }
-
     const now = Date.now();
-    await ctx.db.patch(world._id, { lastViewed: Math.max(world.lastViewed ?? now, now) });
+
+    // Skip the update (and then potentially make the transaction readonly)
+    // if it's been viewed sufficiently recently..
+    if (!worldStatus.lastViewed || worldStatus.lastViewed < now - WORLD_HEARTBEAT_INTERVAL / 2) {
+      await ctx.db.patch(worldStatus._id, {
+        lastViewed: Math.max(worldStatus.lastViewed ?? now, now),
+      });
+    }
 
     // Restart inactive worlds, but leave worlds explicitly stopped by the developer alone.
-    if (world.status === 'stoppedByDeveloper') {
-      console.debug(`World ${world._id} is stopped by developer, not restarting.`);
+    if (worldStatus.status === 'stoppedByDeveloper') {
+      console.debug(`World ${worldStatus._id} is stopped by developer, not restarting.`);
     }
-    if (world.status === 'stoppedByHumanVictory') {
-      console.debug(`World ${world._id} is stopped due to human victory, not restarting.`);
+    if (worldStatus.status === 'stoppedByHumanVictory') {
+      console.debug(`World ${worldStatus.worldId} is stopped due to human victory, not restarting.`);
     }
 
-    if (world.status === 'inactive') {
-      console.log(`Restarting inactive world ${world._id}...`);
-      await ctx.db.patch(world._id, { status: 'running' });
-      await startEngine(ctx, internal.game.main.runStep, engine._id);
-      await kickAgents(ctx, { worldId: world._id });
+    if (worldStatus.status === 'inactive') {
+      console.log(`Restarting inactive world ${worldStatus._id}...`);
+      await ctx.db.patch(worldStatus._id, { status: 'running' });
+      await startEngine(ctx, worldStatus.worldId);
     }
   },
 });
@@ -64,33 +60,15 @@ export const heartbeatWorld = mutation({
 export const stopInactiveWorlds = internalMutation({
   handler: async (ctx) => {
     const cutoff = Date.now() - IDLE_WORLD_TIMEOUT;
-    const worlds = await ctx.db.query('worlds').collect();
-    for (const world of worlds) {
-      if (cutoff < world.lastViewed || world.status !== 'running') {
+    const worlds = await ctx.db.query('worldStatus').collect();
+    for (const worldStatus of worlds) {
+      if (cutoff < worldStatus.lastViewed || worldStatus.status !== 'running') {
         continue;
       }
-      console.log(`Stopping inactive world ${world._id}`);
-      await ctx.db.patch(world._id, { status: 'inactive' });
-      await stopEngine(ctx, world.engineId);
-      await stopAgents(ctx, { worldId: world._id });
+      console.log(`Stopping inactive world ${worldStatus._id}`);
+      await ctx.db.patch(worldStatus._id, { status: 'inactive' });
+      await stopEngine(ctx, worldStatus.worldId);
     }
-  },
-});
-
-export const engineStatus = query({
-  args: {
-    worldId: v.id('worlds'),
-  },
-  handler: async (ctx, args) => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    const engine = await ctx.db.get(world.engineId);
-    if (!engine) {
-      throw new Error(`Invalid engine ID: ${world.engineId}`);
-    }
-    return engine;
   },
 });
 
@@ -103,17 +81,7 @@ export const userStatus = query({
     if (!identity) {
       return null;
     }
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    const player = await ctx.db
-      .query('players')
-      .withIndex('active', (q) =>
-        q.eq('worldId', world._id).eq('active', true).eq('human', identity.tokenIdentifier),
-      )
-      .first();
-    return player?._id ?? null;
+    return identity.tokenIdentifier;
   },
 });
 
@@ -124,36 +92,27 @@ export const joinWorld = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error(`Not logged in`);
+      throw new ConvexError(`Not logged in`);
     }
     if (!identity.givenName) {
-      throw new Error(`Missing givenName on ${JSON.stringify(identity)}`);
+      throw new ConvexError(`Missing givenName on ${JSON.stringify(identity)}`);
     }
     const world = await ctx.db.get(args.worldId);
     if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
+      throw new ConvexError(`Invalid world ID: ${args.worldId}`);
     }
     const { tokenIdentifier } = identity;
-    const existingPlayer = await ctx.db
-      .query('players')
-      .withIndex('active', (q) =>
-        q.eq('worldId', world._id).eq('active', true).eq('human', identity.tokenIdentifier),
-      )
-      .first();
+    const existingPlayer = world.players.find((p) => p.human === tokenIdentifier);
     if (existingPlayer) {
-      throw new Error(`Already joined as ${existingPlayer._id}`);
+      throw new Error(`Already joined as ${existingPlayer.id}`);
     }
-    await sendInput(ctx, {
-      worldId: world._id,
-      name: 'join',
-      args: {
-        name: identity.givenName,
-        character: characters[Math.floor(Math.random() * characters.length)].name,
-        description: `${identity.givenName} is a human player`,
-        tokenIdentifier,
-        hasSecretCode: false,
-        reportedAsHuman: false
-      },
+    return await insertInput(ctx, world._id, 'join', {
+      name: identity.givenName,
+      character: characters[Math.floor(Math.random() * characters.length)].name,
+      description: `${identity.givenName} is a human player`,
+      tokenIdentifier,
+      hasSecretCode: false,
+      reportedAsHuman: false
     });
   },
 });
@@ -172,214 +131,104 @@ export const leaveWorld = mutation({
     if (!world) {
       throw new Error(`Invalid world ID: ${args.worldId}`);
     }
-    const existingPlayer = await ctx.db
-      .query('players')
-      .withIndex('active', (q) =>
-        q.eq('worldId', world._id).eq('active', true).eq('human', tokenIdentifier),
-      )
-      .first();
+    const existingPlayer = world.players.find((p) => p.human === tokenIdentifier);
     if (!existingPlayer) {
       return;
     }
-    await sendInput(ctx, {
-      worldId: world._id,
-      name: 'leave',
-      args: {
-        playerId: existingPlayer._id,
-      },
+    await insertInput(ctx, world._id, 'leave', {
+      playerId: existingPlayer.id,
     });
   },
 });
 
 export const sendWorldInput = mutation({
   args: {
-    worldId: v.id('worlds'),
+    engineId: v.id('engines'),
     name: v.string(),
     args: v.any(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error(`Not logged in`);
+    }
+    return await engineInsertInput(ctx, args.engineId, args.name as any, args.args);
+  },
+});
+
+export const worldState = query({
+  args: {
+    worldId: v.id('worlds'),
   },
   handler: async (ctx, args) => {
     const world = await ctx.db.get(args.worldId);
     if (!world) {
       throw new Error(`Invalid world ID: ${args.worldId}`);
     }
-    return await sendInput(ctx, {
-      worldId: world._id,
-      name: args.name,
-      args: args.args,
-    });
+    const worldStatus = await ctx.db
+      .query('worldStatus')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .unique();
+    if (!worldStatus) {
+      throw new Error(`Invalid world status ID: ${world._id}`);
+    }
+    const engine = await ctx.db.get(worldStatus.engineId);
+    if (!engine) {
+      throw new Error(`Invalid engine ID: ${worldStatus.engineId}`);
+    }
+    return { world, engine };
   },
 });
 
-export type PlayerMetadata = Doc<'players'> & {
-  isSpeaking: boolean;
-  isThinking: boolean;
-};
-
-export const activePlayers = query({
+export const gameDescriptions = query({
   args: {
     worldId: v.id('worlds'),
   },
-  handler: async (ctx, args): Promise<PlayerMetadata[]> => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    const out = [];
-    const players = await ctx.db
-      .query('players')
-      .withIndex('active', (q) => q.eq('worldId', world._id).eq('active', true))
+  handler: async (ctx, args) => {
+    const playerDescriptions = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
       .collect();
-    for (const player of players) {
-      let isSpeaking = false;
-      const member = await ctx.db
-        .query('conversationMembers')
-        .withIndex('playerId', (q) =>
-          q.eq('playerId', player._id).eq('status.kind', 'participating'),
-        )
-        .first();
-      if (member) {
-        const indicator = await ctx.db
-          .query('typingIndicator')
-          .withIndex('conversationId', (q) => q.eq('conversationId', member.conversationId))
-          .first();
-        isSpeaking = !!indicator && indicator.typing?.playerId === player._id;
-      }
-      const agent = await ctx.db
-        .query('agents')
-        .withIndex('playerId', (q) => q.eq('playerId', player._id))
-        .first();
-      const isThinking = !!agent && agent.isThinking !== undefined;
-      out.push({ ...player, isSpeaking, isThinking });
-    }
-    return out;
-  },
-});
-
-export const activePlayerLocations = query({
-  args: {
-    worldId: v.id('worlds'),
-  },
-  handler: async (ctx, args): Promise<Record<Id<'players'>, Doc<'locations'>>> => {
-    const world = await ctx.db.get(args.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${args.worldId}`);
-    }
-    const out: Record<Id<'players'>, Doc<'locations'>> = {};
-    const players = await ctx.db
-      .query('players')
-      .withIndex('active', (q) => q.eq('worldId', world._id).eq('active', true))
+    const agentDescriptions = await ctx.db
+      .query('agentDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
       .collect();
-    for (const player of players) {
-      const location = await ctx.db.get(player.locationId);
-      if (!location) {
-        throw new Error(`Invalid location ID: ${player.locationId}`);
-      }
-      out[player._id] = location;
+    const worldMap = await ctx.db
+      .query('maps')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .first();
+    if (!worldMap) {
+      throw new Error(`No map for world: ${args.worldId}`);
     }
-    return out;
-  },
-});
-
-export type ConversationState = Doc<'conversations'> & {
-  member: Doc<'conversationMembers'>;
-  otherPlayerId: Id<'players'>;
-};
-
-export const loadConversationState = query({
-  args: {
-    playerId: v.id('players'),
-  },
-  handler: async (ctx, args): Promise<null | ConversationState> => {
-    const player = await ctx.db.get(args.playerId);
-    if (!player) {
-      throw new Error(`Invalid player ID: ${args.playerId}`);
-    }
-    // TODO: We could combine these queries if we had `.neq()` in our index query API.
-    const invited = await ctx.db
-      .query('conversationMembers')
-      .withIndex('playerId', (q) => q.eq('playerId', player._id).eq('status.kind', 'invited'))
-      .unique();
-    const walkingOver = await ctx.db
-      .query('conversationMembers')
-      .withIndex('playerId', (q) => q.eq('playerId', player._id).eq('status.kind', 'walkingOver'))
-      .unique();
-    const participating = await ctx.db
-      .query('conversationMembers')
-      .withIndex('playerId', (q) => q.eq('playerId', player._id).eq('status.kind', 'participating'))
-      .unique();
-
-    if ([invited, walkingOver, participating].filter(Boolean).length > 1) {
-      throw new Error(`Player ${player._id} is in multiple conversations`);
-    }
-    const member = invited ?? walkingOver ?? participating;
-    if (!member) {
-      return null;
-    }
-    const conversation = await ctx.db.get(member.conversationId);
-    if (!conversation) {
-      throw new Error(`Invalid conversation ID: ${member.conversationId}`);
-    }
-
-    const members = await ctx.db
-      .query('conversationMembers')
-      .withIndex('conversationId', (q) => q.eq('conversationId', conversation._id))
-      .collect();
-    const otherMember = members.find((m) => m.playerId !== player._id);
-    if (!otherMember) {
-      throw new Error(`Conversation ${conversation._id} has no other member`);
-    }
-    const otherPlayerId = otherMember.playerId;
-
-    return { member, otherPlayerId, ...conversation };
+    return { worldMap, playerDescriptions, agentDescriptions };
   },
 });
 
 export const previousConversation = query({
   args: {
-    playerId: v.id('players'),
+    worldId: v.id('worlds'),
+    playerId,
   },
   handler: async (ctx, args) => {
-    const members = await ctx.db
-      .query('conversationMembers')
-      .withIndex('playerId', (q) => q.eq('playerId', args.playerId).eq('status.kind', 'left'))
+    // Walk the player's history in descending order, looking for a nonempty
+    // conversation.
+    const members = ctx.db
+      .query('participatedTogether')
+      .withIndex('playerHistory', (q) => q.eq('worldId', args.worldId).eq('player1', args.playerId))
       .order('desc');
 
     for await (const member of members) {
-      const conversation = await ctx.db.get(member.conversationId);
+      const conversation = await ctx.db
+        .query('archivedConversations')
+        .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('id', member.conversationId))
+        .unique();
       if (!conversation) {
         throw new Error(`Invalid conversation ID: ${member.conversationId}`);
       }
-      const firstMessage = await ctx.db
-        .query('messages')
-        .withIndex('conversationId', (q) => q.eq('conversationId', conversation._id))
-        .order('asc')
-        .first();
-      if (!firstMessage) {
-        continue;
+      if (conversation.numMessages > 0) {
+        return conversation;
       }
-      return conversation;
     }
     return null;
-  },
-});
-
-export const conversationMembers = query({
-  args: {
-    conversationId: v.id('conversations'),
-  },
-  handler: async (ctx, args) => {
-    const members = await ctx.db
-      .query('conversationMembers')
-      .withIndex('conversationId', (q) => q.eq('conversationId', args.conversationId))
-      .collect();
-    const out = [];
-    for (const member of members) {
-      const player = await ctx.db.get(member.playerId);
-      if (!player) {
-        throw new Error(`Invalid player ID: ${member.playerId}`);
-      }
-      out.push({ playerName: player.name, ...member });
-    }
-    return out;
   },
 });

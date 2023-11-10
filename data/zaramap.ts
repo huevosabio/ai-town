@@ -7,7 +7,7 @@
 // - The second is populated with objects the characters cannot walk on
 // --
 
-export const tilesetPath = "/ai-town/assets/midjourne_test_tileset.png";
+export const tilesetpath = "/ai-town/assets/midjourne_test_tileset.png";
 // sort of a hack to deal with limitations in the tile map
 export const bgTileIndex = 51;
 
@@ -288,5 +288,5 @@ export const objmap = [
 [ -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , ],
 ],];
 
-export const mapWidth = bgTiles[0][0].length;
-export const mapHeight = bgTiles[0].length;
+export const mapwidth = bgTiles[0][0].length;
+export const mapheight = bgTiles[0].length;

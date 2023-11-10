@@ -3,48 +3,53 @@ import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import closeImg from '../../assets/close.svg';
 import { SelectElement } from './Player';
-import { SignedIn } from '@clerk/clerk-react';
 import { Messages } from './Messages';
 import { toastOnError } from '../toasts';
 import { useSendInput } from '../hooks/sendInput';
+import { Player } from '../../convex/aiTown/player';
+import { GameId } from '../../convex/aiTown/ids';
+import { ServerGame } from '../hooks/serverGame';
 
 export default function PlayerDetails({
   worldId,
+  engineId,
+  game,
   playerId,
   setSelectedElement,
 }: {
   worldId: Id<'worlds'>;
-  playerId?: Id<'players'>;
+  engineId: Id<'engines'>;
+  game: ServerGame;
+  playerId?: GameId<'players'>;
   setSelectedElement: SelectElement;
 }) {
-  const humanPlayerId = useQuery(api.world.userStatus, { worldId });
-  const players = useQuery(api.world.activePlayers, { worldId }) ?? [];
+  const humanTokenIdentifier = useQuery(api.world.userStatus, { worldId });
 
-  const humanConversation = useQuery(
-    api.world.loadConversationState,
-    humanPlayerId ? { playerId: humanPlayerId } : 'skip',
-  );
+  const players = [...game.world.players.values()];
+  const humanPlayer = players.find((p) => p.human === humanTokenIdentifier);
+  const humanConversation = humanPlayer ? game.world.playerConversation(humanPlayer) : undefined;
   // Always select the other player if we're in a conversation with them.
-  if (humanConversation) {
-    playerId = humanConversation.otherPlayerId;
+  if (humanPlayer && humanConversation) {
+    const otherPlayerIds = [...humanConversation.participants.keys()].filter(
+      (p) => p !== humanPlayer.id,
+    );
+    playerId = otherPlayerIds[0];
   }
 
-  const playerConversation = useQuery(
-    api.world.loadConversationState,
-    playerId ? { playerId } : 'skip',
-  );
+  const player = playerId && game.world.players.get(playerId);
+  const playerConversation = player && game.world.playerConversation(player);
+
   const previousConversation = useQuery(
     api.world.previousConversation,
-    playerId ? { playerId } : 'skip',
+    playerId ? { worldId, playerId } : 'skip',
   );
 
-  const player = players.find((p) => p._id === playerId);
-  const humanPlayer = players.find((p) => p._id === humanPlayerId);
+  const playerDescription = playerId && game.playerDescriptions.get(playerId);
 
-  const startConversation = useSendInput(worldId, 'startConversation');
-  const acceptInvite = useSendInput(worldId, 'acceptInvite');
-  const rejectInvite = useSendInput(worldId, 'rejectInvite');
-  const leaveConversation = useSendInput(worldId, 'leaveConversation');
+  const startConversation = useSendInput(engineId, 'startConversation');
+  const acceptInvite = useSendInput(engineId, 'acceptInvite');
+  const rejectInvite = useSendInput(engineId, 'rejectInvite');
+  const leaveConversation = useSendInput(engineId, 'leaveConversation');
 
   if (!playerId) {
     return (
@@ -53,70 +58,70 @@ export default function PlayerDetails({
       </div>
     );
   }
-  if (humanPlayerId === undefined || !player) {
+  if (!player) {
     return null;
   }
-  const isMe = humanPlayerId && playerId === humanPlayerId;
-  const canInvite =
-    !isMe && playerConversation === null && humanPlayer && humanConversation === null;
+  const isMe = humanPlayer && player.id === humanPlayer.id;
+  const canInvite = !isMe && !playerConversation && humanPlayer && !humanConversation;
   const sameConversation =
     !isMe &&
     humanPlayer &&
     humanConversation &&
     playerConversation &&
-    humanConversation._id === playerConversation._id;
-  const haveInvite = sameConversation && humanConversation.member.status.kind === 'invited';
-  const waitingForAccept = sameConversation && playerConversation.member.status.kind === 'invited';
+    humanConversation.id === playerConversation.id;
+
+  const humanStatus =
+    humanPlayer && humanConversation && humanConversation.participants.get(humanPlayer.id)?.status;
+  const playerStatus = playerConversation && playerConversation.participants.get(playerId)?.status;
+
+  const haveInvite = sameConversation && humanStatus?.kind === 'invited';
+  const waitingForAccept =
+    sameConversation && playerConversation.participants.get(playerId)?.status.kind === 'invited';
   const waitingForNearby =
-    sameConversation &&
-    playerConversation.member.status.kind === 'walkingOver' &&
-    humanConversation.member.status.kind === 'walkingOver';
+    sameConversation && playerStatus?.kind === 'walkingOver' && humanStatus?.kind === 'walkingOver';
 
   const inConversationWithMe =
     sameConversation &&
-    playerConversation.member.status.kind === 'participating' &&
-    humanConversation.member.status.kind === 'participating';
+    playerStatus?.kind === 'participating' &&
+    humanStatus?.kind === 'participating';
 
   const onStartConversation = async () => {
-    if (!humanPlayerId || !playerId) {
+    if (!humanPlayer || !playerId) {
       return;
     }
     console.log(`Starting conversation`);
-    await toastOnError(startConversation({ playerId: humanPlayerId, invitee: playerId }));
+    await toastOnError(startConversation({ playerId: humanPlayer.id, invitee: playerId }));
   };
   const onAcceptInvite = async () => {
-    if (!humanPlayerId || !playerId) {
-      return;
-    }
-    if (!humanPlayer || !humanConversation) {
+    if (!humanPlayer || !humanConversation || !playerId) {
       return;
     }
     await toastOnError(
       acceptInvite({
-        playerId: humanPlayerId,
-        conversationId: humanConversation._id,
+        playerId: humanPlayer.id,
+        conversationId: humanConversation.id,
       }),
     );
   };
   const onRejectInvite = async () => {
-    if (!humanPlayerId || !humanConversation) {
+    if (!humanPlayer || !humanConversation) {
       return;
     }
     await toastOnError(
       rejectInvite({
-        playerId: humanPlayerId,
-        conversationId: humanConversation._id,
+        playerId: humanPlayer.id,
+        conversationId: humanConversation.id,
       }),
     );
   };
   const onLeaveConversation = async () => {
-    if (!humanPlayerId || !humanPlayerId || !inConversationWithMe || !humanConversation) {
+    if (!humanPlayer || !inConversationWithMe || !humanConversation) {
       return;
     }
     await toastOnError(
       leaveConversation({
-        playerId: humanPlayerId,
-        conversationId: humanConversation._id,
+        playerId: humanPlayer.id,
+        conversationId: humanConversation.id,
       }),
     );
   };
@@ -129,7 +134,7 @@ export default function PlayerDetails({
       <div className="flex gap-4">
         <div className="box flex-grow">
           <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
-            {player.name}
+            {playerDescription?.name}
           </h2>
         </div>
         <a
@@ -141,96 +146,100 @@ export default function PlayerDetails({
           </h2>
         </a>
       </div>
-      <SignedIn>
-        {canInvite && (
+      {canInvite && (
+        <a
+          className={
+            'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
+            pendingSuffix('startConversation')
+          }
+          onClick={onStartConversation}
+        >
+          <div className="h-full bg-clay-700 text-center">
+            <span>Start conversation</span>
+          </div>
+        </a>
+      )}
+      {waitingForAccept && (
+        <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
+          <div className="h-full bg-clay-700 text-center">
+            <span>Waiting for accept...</span>
+          </div>
+        </a>
+      )}
+      {waitingForNearby && (
+        <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
+          <div className="h-full bg-clay-700 text-center">
+            <span>Walking over...</span>
+          </div>
+        </a>
+      )}
+      {inConversationWithMe && (
+        <a
+          className={
+            'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
+            pendingSuffix('leaveConversation')
+          }
+          onClick={onLeaveConversation}
+        >
+          <div className="h-full bg-clay-700 text-center">
+            <span>Leave conversation</span>
+          </div>
+        </a>
+      )}
+      {haveInvite && (
+        <>
           <a
             className={
               'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-              pendingSuffix('startConversation')
+              pendingSuffix('acceptInvite')
             }
-            onClick={onStartConversation}
+            onClick={onAcceptInvite}
           >
             <div className="h-full bg-clay-700 text-center">
-              <span>Start conversation</span>
+              <span>Accept</span>
             </div>
           </a>
-        )}
-        {waitingForAccept && (
-          <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
-            <div className="h-full bg-clay-700 text-center">
-              <span>Waiting for accept...</span>
-            </div>
-          </a>
-        )}
-        {waitingForNearby && (
-          <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
-            <div className="h-full bg-clay-700 text-center">
-              <span>Walking over...</span>
-            </div>
-          </a>
-        )}
-        {inConversationWithMe && (
           <a
             className={
               'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-              pendingSuffix('leaveConversation')
+              pendingSuffix('rejectInvite')
             }
-            onClick={onLeaveConversation}
+            onClick={onRejectInvite}
           >
             <div className="h-full bg-clay-700 text-center">
-              <span>Leave conversation</span>
+              <span>Reject</span>
             </div>
           </a>
-        )}
-        {haveInvite && (
-          <>
-            <a
-              className={
-                'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-                pendingSuffix('acceptInvite')
-              }
-              onClick={onAcceptInvite}
-            >
-              <div className="h-full bg-clay-700 text-center">
-                <span>Accept</span>
-              </div>
-            </a>
-            <a
-              className={
-                'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-                pendingSuffix('rejectInvite')
-              }
-              onClick={onRejectInvite}
-            >
-              <div className="h-full bg-clay-700 text-center">
-                <span>Reject</span>
-              </div>
-            </a>
-          </>
-        )}
-      </SignedIn>
-      {!isMe && playerConversation && playerConversation.member.status.kind === 'participating' && (
+        </>
+      )}
+      {!playerConversation && player.activity && player.activity.until > Date.now() && (
+        <div className="box flex-grow mt-6">
+          <h2 className="bg-brown-700 text-lg text-center">{player.activity.description}</h2>
+        </div>
+      )}
+      {!isMe && playerConversation && playerStatus?.kind === 'participating' && (
         <Messages
           worldId={worldId}
+          engineId={engineId}
           inConversationWithMe={inConversationWithMe ?? false}
-          conversation={playerConversation}
+          conversation={{ kind: 'active', doc: playerConversation }}
           humanPlayer={humanPlayer}
         />
       )}
-      {(!playerConversation || playerConversation.member.status.kind !== 'participating') &&
-        previousConversation && (
-          <>
-            <div className="box flex-grow">
-              <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
-            </div>
-            <Messages
-              worldId={worldId}
-              inConversationWithMe={false}
-              conversation={previousConversation}
-              humanPlayer={humanPlayer}
-            />
-          </>
-        )}
+      {!playerConversation && previousConversation && (
+        <>
+          <div className="box flex-grow">
+            <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
+          </div>
+          <Messages
+            worldId={worldId}
+            engineId={engineId}
+            inConversationWithMe={false}
+            conversation={{ kind: 'archived', doc: previousConversation }}
+            humanPlayer={humanPlayer}
+          />
+        </>
+      )}
     </>
   );
 }

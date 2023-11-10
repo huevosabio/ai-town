@@ -5,13 +5,17 @@ import a16zImg from '../assets/a16z.png';
 import convexImg from '../assets/convex.svg';
 import starImg from '../assets/star.svg';
 import helpImg from '../assets/help.svg';
-import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { UserButton } from '@clerk/clerk-react';
+import { Authenticated, Unauthenticated } from 'convex/react';
 import LoginButton from './components/buttons/LoginButton.tsx';
 import { useState } from 'react';
 import ReactModal from 'react-modal';
 import MusicButton from './components/buttons/MusicButton.tsx';
 import Button from './components/buttons/Button.tsx';
 import NewGameButton from './components/buttons/NewGame.tsx';
+//import InteractButton from './components/buttons/InteractButton.tsx';
+//import FreezeButton from './components/FreezeButton.tsx';
+//import { MAX_HUMAN_PLAYERS } from '../convex/constants.ts';
 
 export default function Home() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
@@ -51,7 +55,8 @@ export default function Home() {
             To talk to an entity, click on them and then click "Start conversation," which will ask
             them to start walking towards you. Once they're nearby, the conversation will start, and
             you can speak to each other. You can leave at any time by closing the conversation pane
-            or moving away.
+            or moving away. They may propose a conversation to you - you'll see a button to accept
+            in the messages panel.
           </p>
           <br/>
           <p>
@@ -65,13 +70,13 @@ export default function Home() {
         </div>
       </ReactModal>
       <div className="p-6 absolute top-0 right-0 z-10 text-2xl">
-        <SignedIn>
+        <Authenticated>
           <UserButton afterSignOutUrl="/ai-town" />
-        </SignedIn>
+        </Authenticated>
 
-        <SignedOut>
+        <Unauthenticated>
           <LoginButton />
-        </SignedOut>
+        </Unauthenticated>
       </div>
 
       <div className="w-full min-h-screen relative isolate overflow-hidden p-6 lg:p-8 shadow-2xl flex flex-col justify-center">
@@ -90,6 +95,7 @@ export default function Home() {
 
         <footer className="absolute bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
           <div className="flex gap-4 flex-grow pointer-events-none">
+            {/* <FreezeButton /> */}
             <MusicButton />
             <NewGameButton />
             <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>
