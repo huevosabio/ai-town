@@ -40,9 +40,14 @@ export class Agent {
     operationId: string;
     started: number;
   };
+  inProgressSlowOp?: {
+    name: string;
+    operationId: string;
+    started: number;
+  };
 
   constructor(serialized: SerializedAgent) {
-    const { id, lastConversation, lastInviteAttempt, inProgressOperation } = serialized;
+    const { id, lastConversation, lastInviteAttempt, inProgressOperation, inProgressSlowOp } = serialized;
     const playerId = parseGameId('players', serialized.playerId);
     this.id = parseGameId('agents', id);
     this.playerId = playerId;
@@ -64,12 +69,62 @@ export class Agent {
     this.lastConversation = lastConversation;
     this.lastInviteAttempt = lastInviteAttempt;
     this.inProgressOperation = inProgressOperation;
+    this.inProgressSlowOp = inProgressSlowOp;
   }
 
   tick(game: Game, now: number) {
     const player = game.world.players.get(this.playerId);
     if (!player) {
       throw new Error(`Invalid player ID ${this.playerId}`);
+    }
+    // check if we can run a slow operation if so do it
+    if (this.inProgressSlowOp) {
+      if (now > this.inProgressSlowOp.started + ACTION_TIMEOUT) {
+        // timed out
+        console.log(`Timing out ${JSON.stringify(this.inProgressSlowOp)}`);
+        delete this.inProgressSlowOp;
+      }
+    } else {
+      // we now can schedule a new slow operation
+      // these are the slow operations
+      // check if we have to log a rejection
+      if (this.toRememberRejection) {
+        console.log(`Agent ${this.id} remembering rejection ${this.toRememberRejection}`);
+        this.startSlowOperation(game, now, 'agentRememberRejection', {
+          worldId: game.worldId,
+          agentId: this.id,
+          playerId: this.playerId,
+          otherPlayerId: this.toRememberRejection.otherPlayerId,
+          conversationId: this.toRememberRejection.conversationId,
+          rejectedBySelf: false,
+        });
+        delete this.toRememberRejection;
+        return;
+      }
+      // Check to see if we have a conversation we need to remember.
+      if (this.toRemember) {
+        // Fire off the action to remember the conversation.
+        console.log(`Agent ${this.id} remembering conversation ${this.toRemember}`);
+        this.startSlowOperation(game, now, 'agentRememberConversation', {
+          worldId: game.worldId,
+          playerId: this.playerId,
+          agentId: this.id,
+          conversationId: this.toRemember,
+        });
+        delete this.toRemember;
+        return;
+      }
+      // finally if we have to replan, do so
+      if (this.toReplan) {
+        console.log(`Agent ${this.id} replanning`);
+        this.startSlowOperation(game, now, 'agentReflectAndUpdatePlan', {
+          worldId: game.worldId,
+          playerId: this.playerId,
+          agentId: this.id,
+        });
+        delete this.toReplan;
+        return;
+      }
     }
     if (this.inProgressOperation) {
       if (now < this.inProgressOperation.started + ACTION_TIMEOUT) {
@@ -105,44 +160,6 @@ export class Agent {
         agent: this.serialize(),
         map: game.worldMap.serialize(),
       });
-      return;
-    }
-    // check if we have to log a rejection
-    if (this.toRememberRejection) {
-      console.log(`Agent ${this.id} remembering rejection ${this.toRememberRejection}`);
-      this.startOperation(game, now, 'agentRememberRejection', {
-        worldId: game.worldId,
-        agentId: this.id,
-        playerId: this.playerId,
-        otherPlayerId: this.toRememberRejection.otherPlayerId,
-        conversationId: this.toRememberRejection.conversationId,
-        rejectedBySelf: false,
-      });
-      delete this.toRememberRejection;
-      return;
-    }
-    // Check to see if we have a conversation we need to remember.
-    if (this.toRemember) {
-      // Fire off the action to remember the conversation.
-      console.log(`Agent ${this.id} remembering conversation ${this.toRemember}`);
-      this.startOperation(game, now, 'agentRememberConversation', {
-        worldId: game.worldId,
-        playerId: this.playerId,
-        agentId: this.id,
-        conversationId: this.toRemember,
-      });
-      delete this.toRemember;
-      return;
-    }
-    // finally if we have to replan, do so
-    if (this.toReplan) {
-      console.log(`Agent ${this.id} replanning`);
-      this.startOperation(game, now, 'agentReflectAndUpdatePlan', {
-        worldId: game.worldId,
-        playerId: this.playerId,
-        agentId: this.id,
-      });
-      delete this.toReplan;
       return;
     }
     if (conversation && member) {
@@ -307,6 +324,28 @@ export class Agent {
     };
   }
 
+  startSlowOperation<Name extends keyof AgentOperations>(
+    game: Game,
+    now: number,
+    name: Name,
+    args: Omit<FunctionArgs<AgentOperations[Name]>, 'operationId'>,
+  ) {
+    if (this.inProgressSlowOp) {
+      throw new Error(
+        `Agent ${this.id} already has an operation: ${JSON.stringify(this.inProgressSlowOp)}`,
+      );
+    }
+    const operationId = game.allocId('operations');
+    console.log(`Agent ${this.id} starting operation ${name} (${operationId})`);
+    game.scheduleOperation(name, { operationId, ...args } as any);
+    this.inProgressSlowOp = {
+      name,
+      operationId,
+      started: now,
+    };
+  }
+
+
   serialize(): SerializedAgent {
     return {
       id: this.id,
@@ -317,6 +356,7 @@ export class Agent {
       lastConversation: this.lastConversation,
       lastInviteAttempt: this.lastInviteAttempt,
       inProgressOperation: this.inProgressOperation,
+      inProgressSlowOp: this.inProgressSlowOp,
     };
   }
 }
@@ -333,6 +373,13 @@ export const serializedAgent = {
   lastConversation: v.optional(v.number()),
   lastInviteAttempt: v.optional(v.number()),
   inProgressOperation: v.optional(
+    v.object({
+      name: v.string(),
+      operationId: v.string(),
+      started: v.number(),
+    }),
+  ),
+  inProgressSlowOp: v.optional(
     v.object({
       name: v.string(),
       operationId: v.string(),
