@@ -1,5 +1,6 @@
 ## This is Ramon's log
 
+- [2023-11-09 19:58:25] I think I have most of it there, probably will need to give ita pass once I try to run it
 - [2023-11-09 15:02:56] this is a very long merge, painful
   - sorted out the memory clashes
   - sorted out some random clashes

@@ -1,5 +1,3 @@
-'use node';
-
 import { v } from 'convex/values';
 import { internalAction, internalMutation, internalQuery } from '../_generated/server';
 import { WorldMap, serializedWorldMap } from './worldMap';
