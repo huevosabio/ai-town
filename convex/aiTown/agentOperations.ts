@@ -303,6 +303,7 @@ export const agentRememberRejection = internalAction({
     rejectedBySelf: v.boolean(),
   },
   handler: async (ctx, args) => {
+    console.log('remembering rejection');
     if (args.rejectedBySelf) {
       await rememberEvent(
         ctx,

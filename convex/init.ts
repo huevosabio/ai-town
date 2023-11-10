@@ -2,8 +2,8 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { DatabaseReader, MutationCtx, mutation, internalMutation } from './_generated/server';
 import { Descriptions } from '../data/characters';
-//import * as map from '../data/zaramap';
-import * as map from '../data/gentle';
+import * as map from '../data/zaramap';
+//import * as map from '../data/gentle';
 import { insertInput } from './aiTown/insertInput';
 import { Id } from './_generated/dataModel';
 import { createEngine, stopEngine } from './aiTown/main';
@@ -62,6 +62,13 @@ export const init = mutation({
           // this is a human!
           description = `${identity.givenName} has infiltrated as ${agent.name}`;
           tokenIdentifier = identity.tokenIdentifier;
+          count++;
+        } else if (!agent.hasSecretCode) {
+          // not a user but also not the secret code, just increase counter
+          count++;
+        }
+        if (tokenIdentifier) {
+          console.log(`creating agent ${agent.name} as human`)
           await insertInput(ctx, worldStatus.worldId, 'join', {
             name: agent.name,
             description: description,
@@ -70,16 +77,14 @@ export const init = mutation({
             hasSecretCode: agent.hasSecretCode,
             reportedAsHuman: agent.reportedAsHuman,
           });
-          count++;
-          continue;
-        } else if (!agent.hasSecretCode) {
-          // not a user but also not the secret code, just increase counter
-          count++;
+        } else {
+          console.log(`creating agent ${agent.name} as bot`)
+          await insertInput(ctx, worldStatus.worldId, 'createAgent', {
+            descriptionIndex: numCreated,
+            hasSecretCode: agent.hasSecretCode,
+          });
         }
-        await insertInput(ctx, worldStatus.worldId, 'createAgent', {
-          descriptionIndex: numCreated,
-          hasSecretCode: agent.hasSecretCode,
-        });
+        
         numCreated++;
       }
     }
@@ -135,6 +140,7 @@ async function createWorld(ctx: MutationCtx) {
     userId: identity.tokenIdentifier,
   });
   const worldStatus = (await ctx.db.get(worldStatusId))!;
+  console.log(map);
   await ctx.db.insert('maps', {
     worldId,
     width: map.mapwidth,

@@ -1,5 +1,10 @@
 ## This is Ramon's log
 
+- [2023-11-10 07:42:55] there are two janequants, woups!
+  - lol and we share the same character! so I need to _not_ create a character when the human is created
+  - I did not see a rejection in my memory log, rejections are _not_ working; they are definitely not working on the receiving side
+  - and the character dissapears out of no where, why?! For whatever reason my character dissapears after a bit... why!?
+- [2023-11-09 20:33:14] Ok, almost there, map needs to be fixed and some details
 - [2023-11-09 19:58:25] I think I have most of it there, probably will need to give ita pass once I try to run it
 - [2023-11-09 15:02:56] this is a very long merge, painful
   - sorted out the memory clashes
