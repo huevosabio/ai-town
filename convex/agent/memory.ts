@@ -4,9 +4,10 @@ import { ActionCtx, DatabaseReader, internalMutation, internalQuery } from '../_
 import { Doc, Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import { LLMMessage, fetchEmbedding } from '../util/openai';
-import { ACTION_TIMEOUT } from './constants';
 import { asyncMap } from '../util/asyncMap';
 import { chatCompletionWithLogging } from '../util/chat_completion';
+import { GameId, agentId, conversationId, playerId } from '../aiTown/ids';
+import { SerializedPlayer } from '../aiTown/player';
 
 // How long to wait before updating a memory's last access time.
 export const MEMORY_ACCESS_THROTTLE = 300_000; // In ms
@@ -17,7 +18,7 @@ const MEMORY_OVERFETCH = 10;
 const selfInternal = internal.agent.memory;
 
 const memoryFields = {
-  playerId: v.id('players'),
+  playerId,
   description: v.string(),
   embeddingId: v.id('memoryEmbeddings'),
   importance: v.number(),
@@ -28,13 +29,13 @@ const memoryFields = {
       type: v.literal('relationship'),
       // The player this memory is about, from the perspective of the player
       // whose memory this is.
-      playerId: v.id('players'),
+      playerId,
     }),
     v.object({
       type: v.literal('conversation'),
-      conversationId: v.id('conversations'),
+      conversationId,
       // The other player(s) in the conversation.
-      playerIds: v.array(v.id('players')),
+      playerIds: v.array(playerId),
     }),
     v.object({
       type: v.literal('reflection'),
@@ -46,9 +47,9 @@ const memoryFields = {
     }),
     v.object({
       type: v.literal('event'),
-      conversationId: v.optional(v.id('conversations')),
+      conversationId: v.optional(conversationId),
       // The other player(s) in the conversation.
-      playerIds: v.array(v.id('players')),
+      playerIds: v.array(playerId),
     }),
   ),
 };
@@ -60,17 +61,18 @@ export type MemoryOfType<T extends MemoryType> = Omit<Memory, 'data'> & {
 
 export async function rememberConversation(
   ctx: ActionCtx,
-  agentId: Id<'agents'>,
-  generationNumber: number,
-  playerId: Id<'players'>,
-  conversationId: Id<'conversations'>,
+  worldId: Id<'worlds'>,
+  agentId: GameId<'agents'>,
+  playerId: GameId<'players'>,
+  conversationId: GameId<'conversations'>,
 ) {
   const data = await ctx.runQuery(selfInternal.loadConversation, {
+    worldId,
     playerId,
     conversationId,
   });
   const { player, otherPlayer } = data;
-  const {agent} = await ctx.runQuery(selfInternal.loadAgent, { agentId });
+  const {agentDescription} = await ctx.runQuery(selfInternal.loadAgentDescription, { worldId, agentId });
   const messages = await ctx.runQuery(selfInternal.loadMessages, { conversationId });
   const events = await ctx.runQuery(selfInternal.loadEventsFromConversation, {
     playerId,
@@ -81,14 +83,9 @@ export async function rememberConversation(
   }
   const now = Date.now();
 
-  // Set the `isThinking` flag and schedule a function to clear it after 60s. We'll
-  // also clear the flag in `insertMemory` below to stop thinking early on success.
-  await ctx.runMutation(selfInternal.startThinking, { agentId, now });
-  await ctx.scheduler.runAfter(ACTION_TIMEOUT, selfInternal.clearThinking, { agentId, since: now });
-
-  const currentPlan = agent.plan;
+  const currentPlan = agentDescription.plan;
   // use past memories and current plan to reflect on recent conversations and key takeaways
-  const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
+  const base_prompt = `You are ${player.name}. This is your background: ${agentDescription.identity}.`;
   const plan_prompt = `This is your current plan: ${currentPlan}`;
   const request_prompt = `You just finished a conversation with ${otherPlayer.name}. I would
   like you to summarize the conversation from ${player.name}'s perspective, using first-person pronouns like
@@ -102,17 +99,17 @@ export async function rememberConversation(
       content: prompt,
     },
   ];
-  const authors = new Set<Id<'players'>>();
+  llmMessages.push({
+    role: 'user',
+    content: `This is the conversation log:`,
+  });
+  const authors = new Set<GameId<'players'>>();
   if (messages.length > 0) {
-    llmMessages.push({
-      role: 'user',
-      content: `This is the conversation log:`,
-    });
 
     for (const message of messages) {
-      const author = message.author === player._id ? player : otherPlayer;
-      authors.add(author._id);
-      const recipient = message.author === player._id ? otherPlayer : player;
+      const author = message.author === player.id ? player : otherPlayer;
+      authors.add(author.id as GameId<'players'>);
+      const recipient = message.author === player.id ? otherPlayer : player;
       llmMessages.push({
         role: 'user',
         content: `${author.name} to ${recipient.name}: ${message.text}`,
@@ -124,22 +121,20 @@ export async function rememberConversation(
   const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 500,
-    game_id: player.worldId,
-    character_id: player._id,
-    target_char_ids: [otherPlayer._id],
+    game_id: worldId,
+    character_id: playerId,
+    target_char_ids: [otherPlayer.id],
     call_type: 'remember_conversation'
   });
   const description = `Conversation with ${otherPlayer.name} at ${new Date(
     data.conversation._creationTime,
   ).toLocaleString()}: ${content}`;
-  const importance = await calculateImportance(player, description);
+  const importance = await calculateImportance(description, playerId, worldId);
   const { embedding } = await fetchEmbedding(description);
-  authors.delete(player._id);
+  authors.delete(player.id as GameId<'players'>);
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
-    generationNumber,
-
-    playerId: player._id,
+    playerId: player.id,
     description,
     importance,
     lastAccess: messages[messages.length - 1]._creationTime,
@@ -150,39 +145,76 @@ export async function rememberConversation(
     },
     embedding,
   });
+  await reflectOnMemories(ctx, worldId, playerId);
   return description;
 }
 
 export const loadConversation = internalQuery({
   args: {
-    playerId: v.id('players'),
-    conversationId: v.id('conversations'),
+    worldId: v.id('worlds'),
+    playerId,
+    conversationId,
   },
   handler: async (ctx, args) => {
-    const player = await ctx.db.get(args.playerId);
+    const world = await ctx.db.get(args.worldId);
+    if (!world) {
+      throw new Error(`World ${args.worldId} not found`);
+    }
+    const player = world.players.find((p) => p.id === args.playerId);
     if (!player) {
       throw new Error(`Player ${args.playerId} not found`);
     }
-    const conversation = await ctx.db.get(args.conversationId);
+    const playerDescription = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
+      .first();
+    if (!playerDescription) {
+      throw new Error(`Player description for ${args.playerId} not found`);
+    }
+    const conversation = await ctx.db
+      .query('archivedConversations')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('id', args.conversationId))
+      .first();
     if (!conversation) {
       throw new Error(`Conversation ${args.conversationId} not found`);
     }
-    const conversationMembers = await ctx.db
-      .query('conversationMembers')
-      .withIndex('conversationId', (q) => q.eq('conversationId', args.conversationId))
-      .filter((q) => q.neq(q.field('playerId'), args.playerId))
-      .collect();
-    if (conversationMembers.length !== 1) {
-      throw new Error(`Conversation ${args.conversationId} not with exactly one other player`);
+    const otherParticipator = await ctx.db
+      .query('participatedTogether')
+      .withIndex('conversation', (q) =>
+        q
+          .eq('worldId', args.worldId)
+          .eq('player1', args.playerId)
+          .eq('conversationId', args.conversationId),
+      )
+      .first();
+    if (!otherParticipator) {
+      throw new Error(
+        `Couldn't find other participant in conversation ${args.conversationId} with player ${args.playerId}`,
+      );
     }
-    const otherPlayer = await ctx.db.get(conversationMembers[0].playerId);
+    const otherPlayerId = otherParticipator.player2;
+    let otherPlayer: SerializedPlayer | Doc<'archivedPlayers'> | null =
+      world.players.find((p) => p.id === otherPlayerId) ?? null;
+    if (!otherPlayer) {
+      otherPlayer = await ctx.db
+        .query('archivedPlayers')
+        .withIndex('worldId', (q) => q.eq('worldId', world._id).eq('id', otherPlayerId))
+        .first();
+    }
     if (!otherPlayer) {
       throw new Error(`Conversation ${args.conversationId} other player not found`);
     }
+    const otherPlayerDescription = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', otherPlayerId))
+      .first();
+    if (!otherPlayerDescription) {
+      throw new Error(`Player description for ${otherPlayerId} not found`);
+    }
     return {
-      player,
+      player: { ...player, name: playerDescription.name },
       conversation,
-      otherPlayer,
+      otherPlayer: { ...otherPlayer, name: otherPlayerDescription.name },
     };
   },
 });
@@ -191,9 +223,9 @@ export const loadConversation = internalQuery({
 
 export async function reflectOnRecentConversations(
   ctx: ActionCtx,
-  agentId: Id<'agents'>,
-  generationNumber: number,
-  playerId: Id<'players'>,
+  worldId: Id<'worlds'>,
+  agentId: GameId<'agents'>,
+  playerId: GameId<'players'>,
   memoryLookback: number,
 ) {
   const memories = await ctx.runQuery(selfInternal.recallRecentMemories, {
@@ -212,17 +244,12 @@ export async function reflectOnRecentConversations(
   const memoryAndEventIds = memories.map((memory) => memory._id).concat(events.map((event) => event._id));
   const now = Date.now();
 
-  // Set the `isThinking` flag and schedule a function to clear it after 60s. We'll
-  // also clear the flag in `insertMemory` below to stop thinking early on success.
-  await ctx.runMutation(selfInternal.startThinking, { agentId, now });
-  await ctx.scheduler.runAfter(ACTION_TIMEOUT, selfInternal.clearThinking, { agentId, since: now });
-
   // get player and agent
-  const { player } = await ctx.runQuery(selfInternal.loadPlayer, { playerId });
-  const { agent } = await ctx.runQuery(selfInternal.loadAgent, { agentId });
-  const currentPlan = agent.plan;
+  const { playerDescription } = await ctx.runQuery(selfInternal.loadPlayerDescription, { worldId, playerId });
+  const {agentDescription} = await ctx.runQuery(selfInternal.loadAgentDescription, { worldId, agentId });
+  const currentPlan = agentDescription.plan;
   // use past memories and current plan to reflect on recent conversations and key takeaways
-  const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
+  const base_prompt = `You are ${playerDescription.name}. This is your background: ${agentDescription.identity}.`;
   const plan_prompt = `This is your current plan: ${currentPlan}`;
   const memories_prompt = memories.map((memory) => memory.description).join('\n');
   const event_prompt = events.length ? `These are the events that happened recently: \n ${events.map((event) => event.description).join('\n')}` : '';
@@ -244,18 +271,16 @@ export async function reflectOnRecentConversations(
   const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 500,
-    game_id: player.worldId,
-    character_id: player._id,
+    game_id: worldId,
+    character_id: playerId,
     target_char_ids: [],
     call_type: 'reflect_on_recent_conversations'
   });
-  const importance = await calculateImportance(player, content);
+  const importance = await calculateImportance(content, playerId, worldId);
   const { embedding } = await fetchEmbedding(content);
   const description = `Reflection on recent conversations and events at  ${new Date(now).toLocaleString()}: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
-    generationNumber,
-
     playerId,
     description,
     importance,
@@ -271,9 +296,9 @@ export async function reflectOnRecentConversations(
 
 export async function createAndUpdatePlan(
   ctx: ActionCtx,
-  agentId: Id<'agents'>,
-  generationNumber: number,
-  playerId: Id<'players'>,
+  worldId: Id<'worlds'>,
+  agentId: GameId<'agents'>,
+  playerId: GameId<'players'>,
   reflection: string,
 ) {
   const reflections = await ctx.runQuery(selfInternal.recallRecentMemories, {
@@ -285,17 +310,12 @@ export async function createAndUpdatePlan(
     return;
   }
   const now = Date.now();
-  // Set the `isThinking` flag and schedule a function to clear it after 60s. We'll
-  // also clear the flag in `insertMemory` below to stop thinking early on success.
-  await ctx.runMutation(selfInternal.startThinking, { agentId, now });
-  await ctx.scheduler.runAfter(ACTION_TIMEOUT, selfInternal.clearThinking, { agentId, since: now });
-
   // get player and agent
-  const { player } = await ctx.runQuery(selfInternal.loadPlayer, { playerId });
-  const { agent } = await ctx.runQuery(selfInternal.loadAgent, { agentId });
-  const currentPlan = agent.plan;
+  const { playerDescription } = await ctx.runQuery(selfInternal.loadPlayerDescription, { worldId, playerId });
+  const {agentDescription} = await ctx.runQuery(selfInternal.loadAgentDescription, { worldId, agentId });
+  const currentPlan = agentDescription.plan;
   // use past memories and current plan to reflect on recent conversations and key takeaways
-  const base_prompt = `You are ${player.name}. This is your background: ${agent.identity}.`;
+  const base_prompt = `You are ${playerDescription.name}. This is your background: ${agentDescription.identity}.`;
   const plan_prompt = `This is your current plan: ${currentPlan}`;
   const reflection_prompt = `These are your reflections on your recent conversations and events: ${reflection}`;
   const request_prompt = `I would like you to update your plan based on these reflections and events.
@@ -313,18 +333,16 @@ export async function createAndUpdatePlan(
   const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 500,
-    game_id: player.worldId,
-    character_id: player._id,
+    game_id: worldId,
+    character_id: playerId,
     target_char_ids: [],
     call_type: 'update_plan'
   });
-  const importance = await calculateImportance(player, content);
+  const importance = await calculateImportance(content, playerId, worldId);
   const { embedding } = await fetchEmbedding(content);
   const description = `New plan at  ${new Date(now).toLocaleString()} based on recent conversations: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
-    generationNumber,
-
     playerId,
     description,
     importance,
@@ -335,52 +353,52 @@ export async function createAndUpdatePlan(
     },
     embedding,
   });
-  await ctx.runMutation(selfInternal.updatePlan, { agentId, content });
+  await ctx.runMutation(selfInternal.updatePlan, { agentDescriptionId: agentDescription._id, content });
   return content;
 }
 
 export async function rememberEvent(
   ctx: ActionCtx,
-  agentId: Id<'agents'>,
-  generationNumber: number,
-  playerId: Id<'players'>,
-  otherPlayerId: Id<'players'>,
+  worldId: Id<'worlds'>,
+  agentId: GameId<'agents'>,
+  playerId: GameId<'players'>,
+  otherPlayerId: GameId<'players'>,
   event_type: 'agentReported' | 'agentSharedSecretCode' | 'agentObtainedSecretCode' | 'inviteRejectedBySelf' | 'inviteRejectedByOther',
-  conversationId?: Id<'conversations'>,
+  conversationId?: GameId<'conversations'>,
 ) {
   // store memory with the reporting action
   const now = Date.now();
-  const other = await ctx.runQuery(selfInternal.loadPlayer, { playerId: otherPlayerId });
+  const { playerDescription } = await ctx.runQuery(selfInternal.loadPlayerDescription, { worldId, playerId });
+  const { playerDescription: otherPlayerDescription  } = await ctx.runQuery(selfInternal.loadPlayerDescription, { worldId, playerId: otherPlayerId });
   let description = `Event log at ${new Date(now).toLocaleString()}: `;
   let importance = 0;
   if (event_type === 'agentReported') {
     description = description + `
-      I reported ${other.player.name} as a human
+      I reported ${otherPlayerDescription.name} as a human
       and has been erradicated from the Nexus.`;
     importance = 9; // as important as possible
   } else if (event_type === 'agentSharedSecretCode') {
     description =  description + `
-      I shared the ZetaMaster code with ${other.player.name}.`;
+      I shared the ZetaMaster code with ${otherPlayerDescription.name}.`;
     importance = 9; // as important as possible
   } else if (event_type === 'agentObtainedSecretCode') {
     description =  description + `
-      I obtained the ZetaMaster code from ${other.player.name}.`;
+      I obtained the ZetaMaster code from ${otherPlayerDescription.name}.`;
     importance = 9; // as important as possible
   } else if (event_type === 'inviteRejectedBySelf') {
     description =  description + `
-      I rejected a conversation from ${other.player.name}.`;
+      I rejected a conversation from ${otherPlayerDescription.name}.`;
     importance = 9; // as important as possible
   } else if (event_type === 'inviteRejectedByOther') {
     description =  description + `
-      My conversation invite was rejected by ${other.player.name}.`;
+      My conversation invite was rejected by ${otherPlayerDescription.name}.`;
     importance = 9; // as important as possible
   } else {
     throw new Error(`Unknown event type ${event_type}`);
   }
   const { embedding } = await fetchEmbedding(description);
-  await ctx.runMutation(internal.agent.memory.insertMemory, {
+  await ctx.runMutation(selfInternal.insertMemory, {
     agentId: agentId,
-    generationNumber: generationNumber,
     playerId: playerId,
     description,
     importance,
@@ -395,56 +413,52 @@ export async function rememberEvent(
 }
 export const updatePlan = internalMutation({
   args: {
-    agentId: v.id('agents'),
+    agentDescriptionId: v.id('agentDescriptions'),
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.agentId, { plan: args.content });
+    await ctx.db.patch(args.agentDescriptionId, { plan: args.content });
   },
 });
 
-export const loadPlayer = internalQuery({
+export const loadPlayerDescription = internalQuery({
   args: {
-    playerId: v.id('players'),
+    worldId: v.id('worlds'),
+    playerId,
   },
   handler: async (ctx, args) => {
-    const player = await ctx.db.get(args.playerId);
-    if (!player) {
-      throw new Error(`Player ${args.playerId} not found`);
+    const playerDescription = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
+      .first();
+    if (!playerDescription) {
+      throw new Error(`Player description for ${args.playerId} not found`);
     }
-    return { player };
+    return { playerDescription };
   },
 });
 
-export const loadAgent = internalQuery({
+export const loadAgentDescription = internalQuery({
   args: {
-    agentId: v.id('agents'),
+    worldId: v.id('worlds'),
+    agentId,
   },
   handler: async (ctx, args) => {
-    const agent = await ctx.db.get(args.agentId);
-    if (!agent) {
+    // trying to match prior stuff
+    const agentDescription = await ctx.db
+    .query('agentDescriptions')
+    .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('agentId', args.agentId))
+    .first();
+    if (!agentDescription) {
       throw new Error(`Agent ${args.agentId} not found`);
     }
-    return { agent };
-  },
-});
-
-export const loadAgentFromPlayer = internalQuery({
-  args: {
-    playerId: v.id('players'),
-  },
-  handler: async (ctx, args) => {
-    const agent = await ctx.db
-      .query('agents')
-      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
-      .first();
-    return agent;
+    return { agentDescription };
   },
 });
 
 export const recallRecentMemories = internalQuery({
   args: {
-    playerId: v.id('players'),
+    playerId,
     n: v.number(),
     type: v.optional(v.string()),
   },
@@ -461,13 +475,13 @@ export const recallRecentMemories = internalQuery({
 
 export async function searchMemories(
   ctx: ActionCtx,
-  player: Doc<'players'>,
+  playerId: GameId<'players'>,
   searchEmbedding: number[],
   n: number = 3,
 ) {
   const candidates = await ctx.vectorSearch('memoryEmbeddings', 'embedding', {
     vector: searchEmbedding,
-    filter: (q) => q.eq('playerId', player._id),
+    filter: (q) => q.eq('playerId', playerId),
     limit: n * MEMORY_OVERFETCH,
   });
   const rankedMemories = await ctx.runMutation(selfInternal.rankAndTouchMemories, {
@@ -532,10 +546,8 @@ export const rankAndTouchMemories = internalMutation({
 });
 
 export const loadMessages = internalQuery({
-  args: {
-    conversationId: v.id('conversations'),
-  },
-  handler: async (ctx, args) => {
+  args: { conversationId },
+  handler: async (ctx, args): Promise<Doc<'messages'>[]> => {
     const messages = await ctx.db
       .query('messages')
       .withIndex('conversationId', (q) => q.eq('conversationId', args.conversationId))
@@ -543,18 +555,10 @@ export const loadMessages = internalQuery({
     return messages;
   },
 });
-
-async function calculateImportance(player: Doc<'players'>, description: string) {
+async function calculateImportance(description: string, playerId: GameId<'players'>, worldId: Id<'worlds'>) {
   // TODO: make a better prompt based on the user's memories
   const { content: importanceRaw } = await chatCompletionWithLogging({
     messages: [
-      // {
-      //   role: 'user',
-      //   content: `You are ${player.name}. Here's a little about you:
-      //         ${player.description}
-
-      //         Now I'm going to give you a description of a memory to gauge the importance of.`,
-      // },
       {
         role: 'user',
         content: `On the scale of 0 to 9, where 0 is purely mundane (e.g., brushing teeth, making bed) and 9 is extremely poignant (e.g., a break up, college acceptance), rate the likely poignancy of the following piece of memory.
@@ -564,8 +568,8 @@ async function calculateImportance(player: Doc<'players'>, description: string) 
     ],
     temperature: 0.0,
     max_tokens: 1,
-    game_id: player.worldId, // TODO: use a different game id
-    character_id: player._id,
+    game_id: worldId, // TODO: use a different game id
+    character_id: playerId,
     target_char_ids: [],
     call_type: 'calculate_importance'
   });
@@ -582,56 +586,14 @@ async function calculateImportance(player: Doc<'players'>, description: string) 
 }
 
 const { embeddingId, ...memoryFieldsWithoutEmbeddingId } = memoryFields;
-export const startThinking = internalMutation({
-  args: {
-    agentId: v.id('agents'),
-    now: v.number(),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.agentId, { isThinking: { since: args.now } });
-  },
-});
-
-export const clearThinking = internalMutation({
-  args: {
-    agentId: v.id('agents'),
-    since: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const agent = await ctx.db.get(args.agentId);
-    if (!agent) {
-      throw new Error(`Agent ${args.agentId} not found`);
-    }
-    if (!agent.isThinking) {
-      return;
-    }
-    if (agent.isThinking.since !== args.since) {
-      return;
-    }
-    await ctx.db.patch(args.agentId, { isThinking: undefined });
-  },
-});
 
 export const insertMemory = internalMutation({
   args: {
-    agentId: v.id('agents'),
-    generationNumber: v.number(),
-
+    agentId,
     embedding: v.array(v.float64()),
     ...memoryFieldsWithoutEmbeddingId,
   },
-  handler: async (ctx, { agentId, generationNumber, embedding, ...memory }) => {
-    const agent = await ctx.db.get(agentId);
-    if (!agent) {
-      throw new Error(`Agent ${agentId} not found`);
-    }
-    if (agent.generationNumber !== generationNumber) {
-      throw new Error(
-        `Agent ${agentId} generation number ${agent.generationNumber} does not match ${generationNumber}`,
-      );
-    }
-    // Clear the `isThinking` flag atomically with inserting the memory.
-    await ctx.db.patch(agentId, { isThinking: undefined });
+  handler: async (ctx, { agentId, embedding, ...memory }): Promise<void> => {
     const embeddingId = await ctx.db.insert('memoryEmbeddings', {
       playerId: memory.playerId,
       embedding: embedding,
@@ -643,9 +605,160 @@ export const insertMemory = internalMutation({
   },
 });
 
+export const insertReflectionMemories = internalMutation({
+  args: {
+    worldId: v.id('worlds'),
+    playerId,
+    reflections: v.array(
+      v.object({
+        description: v.string(),
+        relatedMemoryIds: v.array(v.id('memories')),
+        importance: v.number(),
+        embedding: v.array(v.float64()),
+      }),
+    ),
+  },
+  handler: async (ctx, { playerId, reflections }) => {
+    const lastAccess = Date.now();
+    for (const { embedding, relatedMemoryIds, ...rest } of reflections) {
+      const embeddingId = await ctx.db.insert('memoryEmbeddings', {
+        playerId,
+        embedding: embedding,
+      });
+      await ctx.db.insert('memories', {
+        playerId,
+        embeddingId,
+        lastAccess,
+        ...rest,
+        data: {
+          type: 'reflection',
+          relatedMemoryIds,
+        },
+      });
+    }
+  },
+});
+
+async function reflectOnMemories(
+  ctx: ActionCtx,
+  worldId: Id<'worlds'>,
+  playerId: GameId<'players'>,
+) {
+  const { memories, lastReflectionTs, name } = await ctx.runQuery(
+    selfInternal.getReflectionMemories,
+    {
+      worldId,
+      playerId,
+      numberOfItems: 100,
+    },
+  );
+
+  // should only reflect if lastest 100 items have importance score of >500
+  const sumOfImportanceScore = memories
+    .filter((m) => m._creationTime > (lastReflectionTs ?? 0))
+    .reduce((acc, curr) => acc + curr.importance, 0);
+  const shouldReflect = sumOfImportanceScore > 500;
+
+  if (!shouldReflect) {
+    return false;
+  }
+  console.debug('sum of importance score = ', sumOfImportanceScore);
+  console.debug('Reflecting...');
+  const prompt = ['[no prose]', '[Output only JSON]', `You are ${name}, statements about you:`];
+  memories.forEach((m, idx) => {
+    prompt.push(`Statement ${idx}: ${m.description}`);
+  });
+  prompt.push('What 3 high-level insights can you infer from the above statements?');
+  prompt.push(
+    'Return in JSON format, where the key is a list of input statements that contributed to your insights and value is your insight. Make the response parseable by Typescript JSON.parse() function. DO NOT escape characters or include "\n" or white space in response.',
+  );
+  prompt.push(
+    'Example: [{insight: "...", statementIds: [1,2]}, {insight: "...", statementIds: [1]}, ...]',
+  );
+
+  const { content: reflection } = await chatCompletionWithLogging({
+    messages: [
+      {
+        role: 'user',
+        content: prompt.join('\n'),
+      },
+    ],
+    game_id: worldId,
+    character_id: playerId,
+    target_char_ids: [],
+    call_type: 'reflect_on_memories'
+  });
+
+  try {
+    const insights: { insight: string; statementIds: number[] }[] = JSON.parse(reflection);
+    const memoriesToSave = await asyncMap(insights, async (item) => {
+      const relatedMemoryIds = item.statementIds.map((idx: number) => memories[idx]._id);
+      const importance = await calculateImportance(item.insight, playerId, worldId);
+      const { embedding } = await fetchEmbedding(item.insight);
+      console.debug('adding reflection memory...', item.insight);
+      return {
+        description: item.insight,
+        embedding,
+        importance,
+        relatedMemoryIds,
+      };
+    });
+
+    await ctx.runMutation(selfInternal.insertReflectionMemories, {
+      worldId,
+      playerId,
+      reflections: memoriesToSave,
+    });
+  } catch (e) {
+    console.error('error saving or parsing reflection', e);
+    console.debug('reflection', reflection);
+    return false;
+  }
+  return true;
+}
+export const getReflectionMemories = internalQuery({
+  args: { worldId: v.id('worlds'), playerId, numberOfItems: v.number() },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    if (!world) {
+      throw new Error(`World ${args.worldId} not found`);
+    }
+    const player = world.players.find((p) => p.id === args.playerId);
+    if (!player) {
+      throw new Error(`Player ${playerId} not found`);
+    }
+    const playerDescription = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
+      .first();
+    if (!playerDescription) {
+      throw new Error(`Player description for ${args.playerId} not found`);
+    }
+    const memories = await ctx.db
+      .query('memories')
+      .withIndex('playerId', (q) => q.eq('playerId', player.id))
+      .order('desc')
+      .take(args.numberOfItems);
+
+    const lastReflection = await ctx.db
+      .query('memories')
+      .withIndex('playerId_type', (q) =>
+        q.eq('playerId', args.playerId).eq('data.type', 'reflection'),
+      )
+      .order('desc')
+      .first();
+
+    return {
+      name: playerDescription.name,
+      memories,
+      lastReflectionTs: lastReflection?._creationTime,
+    };
+  },
+});
+
 export async function latestMemoryOfType<T extends MemoryType>(
   db: DatabaseReader,
-  playerId: Id<'players'>,
+  playerId: GameId<'players'>,
   type: T,
 ) {
   const entry = await db
@@ -663,7 +776,7 @@ export const memoryTables = {
     .index('playerId_type', ['playerId', 'data.type'])
     .index('playerId', ['playerId']),
   memoryEmbeddings: defineTable({
-    playerId: v.id('players'),
+    playerId,
     embedding: v.array(v.float64()),
   }).vectorIndex('embedding', {
     vectorField: 'embedding',
@@ -676,8 +789,8 @@ export const memoryTables = {
 // queries events associated with a conversation
 export const loadEventsFromConversation = internalQuery({
   args: {
-    playerId: v.id('players'),
-    conversationId: v.id('conversations'),
+    playerId,
+    conversationId,
   },
   handler: async (ctx, args) => {
     const events = await ctx.db
@@ -699,5 +812,19 @@ export const loadEvents = internalQuery({
       .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'event'))
       .collect();
     return events;
+  }
+});
+
+
+export const loadWorld = internalQuery({
+  args: {
+    worldId: v.id('worlds'),
+  },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    if (!world) {
+      throw new Error(`World ${args.worldId} not found`);
+    }
+    return { world };
   }
 });

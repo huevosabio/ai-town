@@ -1,7 +1,7 @@
 import { defineTable } from 'convex/server';
-import { v } from 'convex/values';
+import { Infer, v } from 'convex/values';
 
-const inputs = v.object({
+const input = v.object({
   // Inputs are scoped to a single engine.
   engineId: v.id('engines'),
 
@@ -32,7 +32,7 @@ const inputs = v.object({
   received: v.number(),
 });
 
-const engines = v.object({
+export const engine = v.object({
   // What is the current simulation time for the engine? Monotonically increasing.
   currentTime: v.optional(v.number()),
   // What was `currentTime` for the preceding step of the engine?
@@ -41,25 +41,16 @@ const engines = v.object({
   // How far has the engine processed in the input queue?
   processedInputNumber: v.optional(v.number()),
 
-  state: v.union(
-    v.object({
-      kind: v.literal('running'),
-      nextRun: v.number(),
-    }),
-    v.object({
-      kind: v.literal('stopped'),
-    }),
-  ),
+  running: v.boolean(),
 
-  // Monotonically increasing counter that allows inputs to restart the engine
-  // when it's sleeping. In particular, every scheduled run of the engine
-  // is predicated on a generation number, and bumping that number will
-  // atomically cancel that future execution. This provides mutual exclusion
-  // for our core event loop.
+  // Monotonically increasing counter that serializes all engine runs. If we ever
+  // end up with two steps overlapping in time, this counter will force them to
+  // conflict.
   generationNumber: v.number(),
 });
+export type Engine = Infer<typeof engine>;
 
 export const engineTables = {
-  inputs: defineTable(inputs).index('byInputNumber', ['engineId', 'number']),
-  engines: defineTable(engines),
+  inputs: defineTable(input).index('byInputNumber', ['engineId', 'number']),
+  engines: defineTable(engine),
 };

@@ -1,5 +1,25 @@
 ## This is Ramon's log
 
+- [2023-11-10 10:28:10] never mind the share code functionality isn't working [done]
+  - we need to update player state via input handlers
+  - it works now!
+- [2023-11-10 10:25:02] the game is in an ok condition, and the functionality is there, but I did see some issues
+- [2023-11-10 07:42:55] there are two janequants, woups!
+  - lol and we share the same character! so I need to _not_ create a character when the human is created
+  - I did not see a rejection in my memory log, rejections are _not_ working; they are definitely not working on the receiving side [done]
+  - and the character dissapears out of no where, why?! For whatever reason my character dissapears after a bit... why!? apparently there is a idle timer that boots the human [done]
+  - I need to remove activities, well just reduced them to very little [done]
+- [2023-11-09 20:33:14] Ok, almost there, map needs to be fixed and some details
+- [2023-11-09 19:58:25] I think I have most of it there, probably will need to give ita pass once I try to run it
+- [2023-11-09 15:02:56] this is a very long merge, painful
+  - sorted out the memory clashes
+  - sorted out some random clashes
+  - sorted out the remember rejection stuff
+  - working on the replanning; I am going to make it such that after every conversation you have to replan, similar to remember; super inefficient but will come back to it [done]
+  - I don't know what is of the status of conversation members schema, is that a thing? , will check later; ah! so they just don't exist, they get deleted [done]
+  - this one is tricky, I need to set the game ending conditions again
+     - I am not super familiar with how the system _actually_ works so I am assuming setting a variable propagates? 
+  - ok I think I have the game conditions set, at least the function calls
 - [2023-11-07 12:59:59] Going to start the mega-merge, which will be very painfull. To do so I will first try it in a separate branch.
 - [2023-11-07 12:59:17] I had to fix some random bugs, but now rejections are recorded regardless of whether the human or the AI is the one that rejects, and the AI takes them into consideration. This is still crude but works!
 - [2023-11-06 08:54:51] resuming working on having human rejections be recorded. I think I may need to just handle this as part of the input handling, that way it covers human and agent rejections; actually no, its better to keep it as part of the agent loop; because otherwise we are putting agent logic on the game logic and we want that to be separate; I think what I am going to do is to have a "rejected" status that is like "left".

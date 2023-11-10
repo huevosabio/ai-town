@@ -12,66 +12,78 @@ the [Convex tutorial](https://docs.convex.dev/get-started) to get started.
 
 AI Town is split into a few layers:
 
-- The server-side game logic in `convex/game`: This layer defines what state AI Town maintains,
-  how it evolves over time, and how it reacts to user input. Humans and AI agents are
-  indistinguishable to this layer: Both just submit inputs that the game engine processes.
+- The server-side game logic in `convex/aiTown`: This layer defines what state AI Town maintains,
+  how it evolves over time, and how it reacts to user input. Both humans and agents submit inputs
+  that the game engine processes.
 - The client-side game UI in `src/`: AI Town uses `pixi-react` to render the game state to the
   browser for human consumption.
 - The game engine in `convex/engine`: To make it easy to hack on the game rules, we've separated
   out the game engine from the AI Town-specific game rules. The game engine is responsible for
   saving and loading game state from the database, coordinating feeding inputs into the engine,
   and actually running the game engine in Convex functions.
-- The agent in `convex/agent`: Agents run in Convex functions that observe game state and
-  submit inputs to the game engine. Agents are responsible for deciding what inputs to submit
-  based on the game state. Internally, our agents use a combination of simple rule-based systems
-  and talking to an LLM.
+- The agent in `convex/agent`: Agents run as part of the game loop, and can kick off asynchronous
+  Convex functions to do longer processing, such as talking to LLMs. Those functions can save state
+  in separate tables, or submit inputs to the game engine to modify game state. Internally, our
+  agents use a combination of simple rule-based systems and talking to an LLM.
 
-So, if you'd like to tweak agent behavior but keep the same game mechanics, check out `convex/agent`.
+So, if you'd like to tweak agent behavior but keep the same game mechanics, check out `convex/agent`
+for the async work, and `convex/aiTown/agent.ts` for the game loop logic.
 If you would like to add new gameplay elements (that both humans and agents can interact with), add
-the feature to `convex/game`, render it in the UI in `src/`, and then add agent behavior in `convex/agent`.
+the feature to `convex/aiTown`, render it in the UI in `src/`, and respond to it in `convex/aiTown/agent.ts`.
 
 If you have parts of your game that are more latency sensitive, you can move them out of engine
 into regular Convex tables, queries, and mutations, only logging key bits into game state. See
 "Message data model" below for an example.
 
-## AI Town game logic (`convex/game`)
+## AI Town game logic (`convex/aiTown`)
 
 ### Data model
 
 AI Town's data model has a few concepts:
 
-- Players (`convex/game/players.ts`) are the core characters in the game and stored in the `players` table.
-  Players have human readable names and descriptions, and they may be associated with a human user.
-  At any point in time, a player may be pathfinding towards some destination and has a current location.
-- Locations (`convex/game/locations.ts`) keep track of a player's position, orientation, and velocity
-  in the `locations` table. We store the orientation as a normalized vector.
-- Conversations (`convex/game/conversations.ts`) are created by a player and end at some point in time.
-- Conversation memberships (`convex/game/conversationMembers.ts`) indicate that a player is a member
-  of a conversation. Players may only be in one active conversation at any point in time, and conversations
-  currently have exactly two members. Memberships may be in one of four states:
+- Worlds (`convex/aiTown/world.ts`) represent a map with many players interacting together.
+- Players (`convex/aiTown/player.ts`) are the core characters in the game. Players have human readable names and
+  descriptions, and they may be associated with a human user. At any point in time, a player may be pathfinding
+  towards some destination and has a current location.
+- Conversations (`convex/aiTown/conversations.ts`) are created by a player and end at some point in time.
+- Conversation memberships (`convex/aiTown/conversationMembership.ts`) indicate that a player is a member
+  of a conversation. Players may only be in one conversation at any point in time, and conversations
+  currently have exactly two members. Memberships may be in one of three states:
   - `invited`: The player has been invited to the conversation but hasn't accepted yet.
   - `walkingOver`: The player has accepted the invite to the conversation but is too far away to talk. The
     player will automatically join the conversation when they get close enough.
   - `participating`: The player is actively participating in the conversation.
-  - `left`: The player has left the conversation, and we keep the row around for historical queries.
 
-### Inputs (`convex/game/inputs.ts`)
+### Schema
+
+There are three main categories of tables:
+
+1. Engine tables (`convex/engine/schema.ts`) for maintaining engine-internal state.
+2. Game tables (`convex/aiTown/schema.ts`) for game state. To keep game state small and efficient to
+   read and write, we store AI Town's data model across a few tables. See `convex/aiTown/schema.ts` for an overview.
+3. Agent tables (`convex/agent/schema.ts`) for agent state. Agents can freely read and write to these tables
+   within their actions.
+
+### Inputs (`convex/aiTown/inputs.ts`)
 
 AI Town modifies its data model by processing inputs. Inputs are submitted by players and agents and
-processed by the game engine. We specify inputs in the `inputs` object in `convex/game/inputs.ts`, specifying
-the expected arguments and return value types with a Convex validator. With these validators, we can ensure
-end-to-end type-safety both in the client and in agents.
+processed by the game engine. We specify inputs in the `inputs` object in `convex/aiTown/inputs.ts`.
+Use the `inputHandler` function to construct an input handler, specifying a Convex validator for
+arguments for end-to-end type-safety.
 
 - Joining (`join`) and leaving (`leave`) the game.
 - Moving a player to a particular location (`moveTo`): Movement in AI Town is similar to RTS games, where
   the players specify where they want to go, and the engine figures out how to get there.
 - Starting a conversation (`startConversation`), accepting an invite (`acceptInvite`), rejecting an invite
-  (`rejectInvite`), and leaving a conversation (`leaveConversation`).
+  (`rejectInvite`), and leaving a conversation (`leaveConversation`). To track typing indicators,
+  you use `startTyping` and `finishSendingMessage`. These are imported from `game/conversations.ts`.
+- Agent inputs are imported from `aiTown/agentInputs.ts` for things like remembering conversations,
+  deciding what to do, etc.
 
-Each of these inputs' implementations is in the `AiTown.handleInput` method in `convex/game/aiTown.ts`. Each
-implementation method checks invariants and updates game state as desired. For example, the `moveTo` input
-checks that the player isn't participating in a conversation, throwing an error telling them to leave
-the conversation first if so, and then updates their pathfinding state with the desired destination.
+Each of these inputs' implementation method checks invariants and updates game state as desired.
+For example, the `moveTo` input checks that the player isn't participating in a conversation,
+throwing an error telling them to leave the conversation first if so, and then updates their
+pathfinding state with the desired destination.
 
 ### Simulation
 
@@ -82,36 +94,36 @@ notice and replan their paths, trying to avoid obstacles.
 
 ### Message data model
 
-We manage the tables for tracking chat messages in separate tables not affiliated with the game engine. This is for a few reasons:
+We manage the tables for tracking chat messages in separate tables not affiliated
+with the game engine. This is for a few reasons:
 
 - The core simulation doesn't need to know about messages, so keeping them
   out keeps game state small.
 - Messages are updated very frequently (when streamed out from OpenAI) and
-  benefit from lower input latency, so they're not a great fit for the engine. See "Design goals and limitations" below.
-- It's convenient to be able to directly mutate the typing indicator from
-  other mutations without having to go through the game engine.
+  benefit from lower input latency, so they're not a great fit for the engine.
+  See "Design goals and limitations" below.
 
-There are two tables for messages:
+Messages (`convex/schema.ts`) are in a conversation and indicate an author and message text.
+Each conversation has a typing state in the conversations table that indicates that a player
+is currently typing. Players can still send messages while another player is typing, but
+having the indicator helps agents (and humans) not talk over each other.
 
-- Messages (`convex/schema.ts`) are in a conversation and indicate an author and message text.
-- Each conversation has a typing indicator (`convex/schema.ts`) that indicates that a player
-  is currently typing. Players can still send messages while another player is typing, but
-  having the indicator helps agents (and humans) not talk over each other.
-
-These tables are queried and modified with regular Convex queries and mutations that don't directly
-go through the simulation.
+The separate tables are queried and modified with regular Convex queries and mutations
+that don't directly go through the simulation.
 
 ## Game engine (`convex/engine`)
 
-Given the description of AI Town's game behavior in the previous section, the `Game` class in `convex/engine/game.ts`
-implements actually running the simulation. The game engine has a few responsibilities:
+Given the description of AI Town's game behavior in the previous section,
+the `AbstractGame` class in `convex/engine/abstractGame.ts` implements actually running the simulation.
+The game engine has a few responsibilities:
 
-- Coordinating incoming player inputs, feeding them into the simulation, and sending their return values (or errors) to the client.
+- Coordinating incoming player inputs, feeding them into the simulation, and sending their
+  return values (or errors) to the client.
 - Running the simulation forward in time.
 - Saving and loading game state from the database.
 - Managing executing the game behavior, efficiently using Convex resources and minimizing input latency.
 
-AI Town's game behavior is implemented in the `AiTown` class, which subclasses the engine's `Game` class.
+AI Town's game behavior is implemented in the `Game` subclass.
 
 ### Input handling
 
@@ -124,14 +136,14 @@ on an input's status with the `inputStatus` query.
 
 ### Running the simulation
 
-`AiTown` specifies how it simulates time forward with the `tick` method:
+The `Game` class specifies how it simulates time forward with the `tick` method:
 
 - `tick(now)` runs the simulation forward until the given timestamp
 - Ticks are run at a high frequency, configurable with `tickDuration` (milliseconds). Since AI town has smooth motion
   for player movement, it runs at 60 ticks per second.
 - It's generally a good idea to break up game logic into separate systems that can be ticked forward independently.
-  For example, AI Town's `tick` method advances pathfinding with `tickPathfinding`, player positions with
-  `tickPosition`, and conversations with `tickConversation`.
+  For example, AI Town's `tick` method advances pathfinding with `Player.tickPathfinding`, player positions with
+  `Player.tickPosition`, conversations with `Conversation.tick`, and `Agent.tick` for agent logic.
 
 To avoid running a Convex mutation 60 times per second (which would be expensive and slow), the engine batches up
 many ticks into a _step_. AI town runs steps at only 1 time per second. Here's how a step works:
@@ -141,10 +153,6 @@ many ticks into a _step_. AI town runs steps at only 1 time per second. Here's h
 3. Execute many ticks for our time interval, alternating between feeding in inputs with `handleInput` and advancing
    the simulation with `tick`.
 4. Write the updated game state back to the database.
-
-The engine then schedules steps to run periodically. To avoid running steps when the game is idle, games can optionally
-declare if the game is currently idle and for how long with the `idleUntil` method. If the game is idle, the engine
-will automatically schedule the next step past the idleness period but also wake it up if an input comes in.
 
 One core invariant is that the game engine is fully "single-threaded" per world, so there are never two runs of
 an engine's step overlapping in time. Not having to think about race conditions or concurrency makes writing game
@@ -161,19 +169,25 @@ we'd like to cancel a future run of the engine, we can bump the generation numbe
 we're guaranteed that the subsequent run will fail immediately as it'll notice that the engine's
 generation number does not match its expected one.
 
-### Managing game state
+### Engine state management
 
-The engine assumes that all game state is in Convex tables, so it's easy to look at (and even modify!) game state
-directly on the dashboard. Try it out: run AI town, update a player's name, and see it immediately change in the UI.
+The `World`, `Player`, `Conversation`, and `Agent` classes coordinate loading data into memory from the database,
+modifying it according to the game rules, and serializing it to write back out to the database. Here's the flow:
 
-However, it's a lot more convenient to write `handleInput` and `tick` as if we're working purely in-memory state.
-So, we provide `GameTable`, a class that provides a lightweight ORM for reading data from the database, accessing
-it in-memory, and then writing out the rows that have changed at the end of a step.
-
-We want to keep game state relatively small, since it's fully loaded at the beginning of each step. And, the game
-engine often only cares about a small "active" subset of game state in the tables. So, subclasses of `GameTable`
-can implement an `isActive` method that tells the system when a row is no longer active should be excluded from
-game processing. For example, AI Town's `Conversations` class only keeps conversations that are currently active.
+1. The Convex scheduler calls the `convex/aiTown/main.ts:runStep` action.
+2. The `runStep` action calls `convex/aiTown/game.ts:loadWorld` to load the current game state. This query calls
+   `Game.load`, which loads all of a world's game state from the appropriate tables, and returns a
+   `GameState` object, which contains serialized versions of all of the players, agents, etc.
+3. The `runStep` action passes the `GameState` to the `Game` constructor, which parses the serialized versions
+   of all our game objects using their constructors. For example, `new Player(serializedPlayer)` parses the
+   database representation into the in-memory `Player` class.
+4. The engine runs the simulation, modifying the in-memory game objects.
+5. At the end of a step, the framework calls `Game.saveStep`, which computes a diff of the game state since
+   the beginning of the step and passes the diff to the `convex/aiTown/game.ts:saveWorld` mutation.
+6. The `saveWorld` mutation applies the diff to the database, notices if any deleted objects need to be archived,
+   updates the `participatedTogether` graph, and kicks off any scheduled jobs to run.
+7. Since the engine is the only mutator of game state, it continues to run steps for some amount of time
+   without repeating steps 1 to 3 again.
 
 Just as we assume that the game engine is "single threaded", we also assume that the game engine _exclusively_
 owns the tables that store game engine state. Only the game engine should programmatically modify these tables,
@@ -189,36 +203,15 @@ To solve this, we track the historical values of quantities like position _withi
 at the end of each tick. Then, the client receives both the current value _and_ the past step's worth of
 history, and it can "replay" the history to make the motion smooth.
 
-We assume that most quantities do not need this high-frequency tracking, so developers have to opt into this
-by subclassing `HistoricalTable` instead of `GameTable`. There are a few limitations on `HistoricalTable`:
+The game tracks these quantities at the end of each tick by feeding them to a `HistoricalObject`. This object
+efficiently tracks its changes over time and serializes them into a buffer that clients can use for replaying
+its history. There are a few limitations on `HistoricalObject`:
 
-- Historical tables can only have numeric (floating point) values and can't have nested objects or optional fields.
-- Historical tables must declare which fields they'd like to track.
-- Historical tables must define a `history: v.optional(v.bytes())` field in their schema that the engine uses for packing
-  in a buffer of the historical values.
+- Historical objects can only have numeric (floating point) values and can't have nested objects or optional fields.
+- Historical objects must declare which fields they'd like to track.
 
-AI Town uses a historical table for `locations`, storing the position, orientation, and velocity as fields.
-
-```ts
-export const locations = defineTable({
-  // Position.
-  x: v.number(),
-  y: v.number(),
-
-  // Normalized orientation vector.
-  dx: v.number(),
-  dy: v.number(),
-
-  // Velocity (in tiles/sec).
-  velocity: v.number(),
-
-  // History buffer filled out by `HistoricalTable`.
-  history: v.optional(v.bytes()),
-});
-```
-
-By specializing to just continuous numeric quantities, we can compress these buffers. It's important to keep
-these history buffers small since they're sent to to every observing client on every step for every moving character.
+We store each player's "location" (i.e. its position, orientation, and speed) in a `HistoricalObject` and
+write it to the `worlds` document at the end of a step when computing a diff.
 
 ## Client-side game UI (`src/`)
 
@@ -236,28 +229,29 @@ waits for the engine to process them and return their outcome.
 
 ## Agent architecture (`convex/agent`)
 
-### The agent loop (`convex/agent/main.ts`)
+### The agent loop (`convex/game/agents.ts`)
 
-The LLM-powered agents (the `Agent` class in `convex/agent/main.ts`) control a player and have the following behaviors:
+Agents will execute any game state changes, and schedule operations to do anything that requires
+a long-lived request or accessing non-game tables. The flow generally is:
 
-1. Wander around the map
-2. Invite nearby players to conversations.
-3. Decide if they want to accept an invite.
-4. Call into OpenAI to generate message text for conversations, using previous memories from talking with that player.
-5. Decide when to leave a conversation.
-6. Call into OpenAI to summarize conversations and form a memory in Convex's vector database.
-
-Each agent runs in a mutation (`convex/agent/main.ts:agentRun`) that's scheduled periodically. Each run, it looks at
-the current game state, sends some inputs to the engine, and then decides what to do next. If the agent decides to
-send a message in a conversation, it calls into an action (e.g. `convex/agent/main.ts:agentStartConversation`) that
-coordinates calling into OpenAI, sending the message, and then rescheduling the agent to run again.
-
-This scheduled mutation loop uses the same pattern as the engine to handle safely preempting it and retrying on action
-errors without potentially having multiple instances of `agentRun` running at the same time.
+1. Logic in `Agent.tick` can read and modify game state as time progresses, such as waiting until
+   the agent is near another player to start talking.
+2. When there is something that needs to talk to an LLM or read/write external data,
+   it calls `startOperation` with a reference to a Convex function: generally an `internalAction`.
+3. This function can read state from game tables and other tables via `internalQuery` functions.
+4. It executes long-running tasks, and can write data via `internalMutation`s.
+   Game state should not be written, but rather submitted via `inputs` (described in a previous section).
+5. Inputs are submitted from actions with `ctx.runMutation(api.game.main.sendInput, {...})` from actions
+   or via `insertInput` from mutations. They are referenced by their name as a string, like `moveTo`.
+6. Inputs are defined with `inputHandler` and are given an instance of the AiTown game to modify,
+   similar to the game loop. In fact, these are called as part of the game loop before `tickAgent`.
+7. When an operation is done, it deletes the `inProgressOperation`. This is to ensure an agent only
+   is trying to do one thing at a time.
+8. `Agent.tick` then can observe the new game state and continue to make decisions.
 
 ### Conversations (`convex/agent/conversations.ts`)
 
-The agent layer calls into the conversation layer which implements the prompt engineering for
+The agent code calls into the conversation layer which implements the prompt engineering for
 injecting personality and memories into the GPT responses. It has functions for starting a
 conversation (`startConversation`), continuing after the first message (`continueConversation`), and
 politely leaving a conversation (`leaveConversation`). Each function loads structured data from the

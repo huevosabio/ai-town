@@ -1,4 +1,4 @@
-import { useApp, useTick } from '@pixi/react';
+import { useApp } from '@pixi/react';
 import { Player, SelectElement } from './Player.tsx';
 import { useRef, useState } from 'react';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
@@ -12,9 +12,12 @@ import { toastOnError } from '../toasts.ts';
 import { DebugPath } from './DebugPath.tsx';
 import { PositionIndicator } from './PositionIndicator.tsx';
 import { SHOW_DEBUG_UI } from './Game.tsx';
+import { ServerGame } from '../hooks/serverGame.ts';
 
 export const PixiGame = (props: {
   worldId: Id<'worlds'>;
+  engineId: Id<'engines'>;
+  game: ServerGame;
   historicalTime: number | undefined;
   width: number;
   height: number;
@@ -24,13 +27,12 @@ export const PixiGame = (props: {
   const pixiApp = useApp();
   const viewportRef = useRef<Viewport | undefined>();
 
-  const world = useQuery(api.world.defaultWorld);
+  const humanTokenIdentifier = useQuery(api.world.userStatus, { worldId: props.worldId }) ?? null;
+  const humanPlayerId = [...props.game.world.players.values()].find(
+    (p) => p.human === humanTokenIdentifier,
+  )?.id;
 
-  const humanPlayerId = useQuery(api.world.userStatus, { worldId: props.worldId }) ?? null;
-  const players = useQuery(api.world.activePlayers, { worldId: props.worldId }) ?? [];
-  const playerLocations =
-    useQuery(api.world.activePlayerLocations, { worldId: props.worldId }) ?? {};
-  const moveTo = useSendInput(props.worldId, 'moveTo');
+  const moveTo = useSendInput(props.engineId, 'moveTo');
 
   // Interaction for clicking on the world to navigate.
   const dragStart = useRef<{ screenX: number; screenY: number } | null>(null);
@@ -59,13 +61,14 @@ export const PixiGame = (props: {
       return;
     }
     const viewport = viewportRef.current;
-    if (!viewport || !world) {
+    if (!viewport) {
       return;
     }
     const gameSpacePx = viewport.toWorld(e.screenX, e.screenY);
+    const tileDim = props.game.worldMap.tileDim;
     const gameSpaceTiles = {
-      x: gameSpacePx.x / world.map.tileDim,
-      y: gameSpacePx.y / world.map.tileDim,
+      x: gameSpacePx.x / tileDim,
+      y: gameSpacePx.y / tileDim,
     };
     setLastDestination({ t: Date.now(), ...gameSpaceTiles });
     const roundedTiles = {
@@ -75,39 +78,36 @@ export const PixiGame = (props: {
     console.log(`Moving to ${JSON.stringify(roundedTiles)}`);
     await toastOnError(moveTo({ playerId: humanPlayerId, destination: roundedTiles }));
   };
-  if (!world) {
-    return null;
-  }
+  const { width, height, tileDim } = props.game.worldMap;
+  const players = [...props.game.world.players.values()];
   return (
     <PixiViewport
       app={pixiApp}
       screenWidth={props.width}
       screenHeight={props.height}
-      worldWidth={world.map.tileSetDim}
-      worldHeight={world.map.tileSetDim}
+      worldWidth={width * tileDim}
+      worldHeight={height * tileDim}
       viewportRef={viewportRef}
     >
       <PixiStaticMap
-        map={world.map}
+        map={props.game.worldMap}
         onpointerup={onMapPointerUp}
         onpointerdown={onMapPointerDown}
       />
       {players.map(
         (p) =>
           // Only show the path for the human player in non-debug mode.
-          (SHOW_DEBUG_UI || p._id === humanPlayerId) && (
-            <DebugPath key={`path-${p._id}`} player={p} tileDim={world.map.tileDim} />
+          (SHOW_DEBUG_UI || p.id === humanPlayerId) && (
+            <DebugPath key={`path-${p.id}`} player={p} tileDim={tileDim} />
           ),
       )}
-      {lastDestination && (
-        <PositionIndicator destination={lastDestination} tileDim={world.map.tileDim} />
-      )}
+      {lastDestination && <PositionIndicator destination={lastDestination} tileDim={tileDim} />}
       {players.map((p) => (
         <Player
-          key={`player-${p._id}`}
+          key={`player-${p.id}`}
+          game={props.game}
           player={p}
-          location={playerLocations[p._id]}
-          isViewer={p._id === humanPlayerId}
+          isViewer={p.id === humanPlayerId}
           onClick={props.setSelectedElement}
           historicalTime={props.historicalTime}
         />

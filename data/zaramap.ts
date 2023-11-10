@@ -7,20 +7,21 @@
 // - The second is populated with objects the characters cannot walk on
 // --
 
-export const tilesetPath = "/ai-town/assets/midjourne_test_tileset.png";
+export const tilesetpath = "/ai-town/assets/midjourne_test_tileset.png";
 // sort of a hack to deal with limitations in the tile map
 export const bgTileIndex = 51;
 
 // properties of tilemap
-export const tileDim = 32; // 32x32 pixel tiles
+export const tiledim = 32; // 32x32 pixel tiles
 // properties of onscreen map
-export const screenXTiles = 64;
-export const screenYTiles = 64;
+export const screenxtiles = 64;
+export const screenytiles = 64;
 
 export const tileFileDim = 2048; // 1600x1600 pixel file
+export const tilesetpxw = 2048
+export const tilesetpxh = 2048
 
-
-export const bgTiles = [
+export const bgtiles = [
   [
 [ 2080 , 2144 , 2208 , 2272 , 2336 , 2400 , 2464 , 2528 , 2592 , 2656 , 2720 , 2784 , 2848 , 2912 , 2976 , 3040 , 3104 , 3168 , 3232 , 3296 , 3360 , 3424 , 3488 , 3552 , 3616 , 3680 , 3744 , 3808 , 3872 , 3936 , 4000 , 4064 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , ],
 [ 2081 , 2145 , 2209 , 2273 , 2337 , 2401 , 2465 , 2529 , 2593 , 2657 , 2721 , 2785 , 2849 , 2913 , 2977 , 3041 , 3105 , 3169 , 3233 , 3297 , 3361 , 3425 , 3489 , 3553 , 3617 , 3681 , 3745 , 3809 , 3873 , 3937 , 4001 , 4065 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , 4095 , ],
@@ -288,5 +289,7 @@ export const objmap = [
 [ -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , -1 , ],
 ],];
 
-export const mapWidth = bgTiles[0][0].length;
-export const mapHeight = bgTiles[0].length;
+export const animatedsprites = [];
+
+export const mapwidth = bgtiles[0][0].length;
+export const mapheight = bgtiles[0].length;

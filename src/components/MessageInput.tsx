@@ -2,62 +2,81 @@ import clsx from 'clsx';
 import { useMutation, useQuery } from 'convex/react';
 import { KeyboardEvent, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
-import { Doc, Id } from '../../convex/_generated/dataModel';
-import { toastOnError } from '../toasts';
+import { Id } from '../../convex/_generated/dataModel';
+import { useSendInput } from '../hooks/sendInput';
+import { Player } from '../../convex/aiTown/player';
+import { Conversation } from '../../convex/aiTown/conversation';
 
 export function MessageInput({
+  worldId,
+  engineId,
   humanPlayer,
   conversation,
 }: {
-  humanPlayer: Doc<'players'>;
-  conversation: Doc<'conversations'>;
+  worldId: Id<'worlds'>;
+  engineId: Id<'engines'>;
+  humanPlayer: Player;
+  conversation: Conversation;
 }) {
+  const descriptions = useQuery(api.world.gameDescriptions, { worldId });
+  const humanName = descriptions?.playerDescriptions.find((p) => p.playerId === humanPlayer.id)
+    ?.name;
   const inputRef = useRef<HTMLParagraphElement>(null);
-  const [inflight, setInflight] = useState(0);
+  const inflightUuid = useRef<string | undefined>();
   const writeMessage = useMutation(api.messages.writeMessage);
-  const startTyping = useMutation(api.messages.startTyping);
-  const currentlyTyping = useQuery(api.messages.currentlyTyping, {
-    conversationId: conversation._id,
-  });
+  const startTyping = useSendInput(engineId, 'startTyping');
+  const currentlyTyping = conversation.isTyping;
 
   const onKeyDown = async (e: KeyboardEvent) => {
     e.stopPropagation();
-    // Send the current message.
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (!inputRef.current) {
+
+    // Set the typing indicator if we're not submitting.
+    if (e.key !== 'Enter') {
+      console.log(inflightUuid.current);
+      if (currentlyTyping || inflightUuid.current !== undefined) {
         return;
       }
-      const text = inputRef.current.innerText;
-      inputRef.current.innerText = '';
-      await writeMessage({
-        playerId: humanPlayer._id,
-        conversationId: conversation._id,
-        text,
-      });
-      return;
-    }
-    // Try to set a typing indicator.
-    else {
-      if (currentlyTyping || inflight > 0) {
-        return;
-      }
-      setInflight((i) => i + 1);
+      inflightUuid.current = crypto.randomUUID();
       try {
         // Don't show a toast on error.
-        startTyping({
-          playerId: humanPlayer._id,
-          conversationId: conversation._id,
+        await startTyping({
+          playerId: humanPlayer.id,
+          conversationId: conversation.id,
+          messageUuid: inflightUuid.current,
         });
       } finally {
-        setInflight((i) => i - 1);
+        inflightUuid.current = undefined;
       }
+      return;
     }
+
+    // Send the current message.
+    e.preventDefault();
+    if (!inputRef.current) {
+      return;
+    }
+    const text = inputRef.current.innerText;
+    inputRef.current.innerText = '';
+    if (!text) {
+      return;
+    }
+    let messageUuid = inflightUuid.current;
+    if (currentlyTyping && currentlyTyping.playerId === humanPlayer.id) {
+      messageUuid = currentlyTyping.messageUuid;
+    }
+    messageUuid = messageUuid || crypto.randomUUID();
+    await writeMessage({
+      worldId,
+      playerId: humanPlayer.id,
+      conversationId: conversation.id,
+      text,
+      messageUuid,
+    });
   };
   return (
     <div className="leading-tight mb-6">
       <div className="flex gap-4">
-        <span className="uppercase flex-grow">{humanPlayer.name}</span>
+        <span className="uppercase flex-grow">{humanName}</span>
       </div>
       <div className={clsx('bubble', 'bubble-mine')}>
         <p
