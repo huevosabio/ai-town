@@ -29,7 +29,7 @@ export const aiTownTables = {
       v.literal('stoppedByHumanCaught'),
       v.literal('stoppedByUser'),
     ),
-    userId: v.string(),
+    isSoloGame: v.boolean(),
   }).index('worldId', ['worldId']),
 
   // This table contains the map data for a given world. Since it's a bit larger than the player
@@ -84,4 +84,23 @@ export const aiTownTables = {
     .index('edge', ['worldId', 'player1', 'player2', 'ended'])
     .index('conversation', ['worldId', 'player1', 'conversationId'])
     .index('playerHistory', ['worldId', 'player1', 'ended']),
+  
+  // user table for storing user data
+  users: defineTable({
+    username: v.string(),
+    tokenId: v.string(),
+    defaultWorldStatusId: v.optional(v.id('worldStatus')),
+  }).index('byTokenId', ['tokenId']),
+
+  // this is for multiplayer games
+  games: defineTable({
+    worldStatusId: v.id('worldStatus'),
+    users: v.array(v.id('users')),
+    stage: v.union(
+      v.literal('lobby'),
+      v.literal('running'),
+      v.literal('finished'),
+    ),
+    victor: v.optional(v.id('users')),
+  }).index('worldStatusId', ['worldStatusId']),
 };

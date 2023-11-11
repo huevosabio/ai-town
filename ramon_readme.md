@@ -1,5 +1,14 @@
 ## This is Ramon's log
 
+- [2023-11-10 17:05:31] ok now I need to be able to create multi-player game from init
+  - create a lobby schema [done]
+  - this may require a different init?
+  - the init should be initiated from who is in the lobby, so maybe create a notion of a "party"?
+  - when the party is all there, then you can start the game, which then goes to `initMultiPlayerGame` and assigns the players to characters
+  - max the lobby at 3?
+- [2023-11-10 16:22:49] moving to multiplayer, I am going to first
+  - change the worldStatus to mark if it multiplayer or solo [done]
+  - create a user table that has the current default world and other goodies if necessary [done]
 - [2023-11-10 10:28:10] never mind the share code functionality isn't working [done]
   - we need to update player state via input handlers
   - it works now!
