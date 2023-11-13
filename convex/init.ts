@@ -134,7 +134,7 @@ export async function getDefaultWorld(ctx: MutationCtx) {
   }
 }
 
-async function createWorld(ctx: MutationCtx) {
+export async function createWorld(ctx: MutationCtx) {
   const now = Date.now();
   // get authed user
   const identity = await ctx.auth.getUserIdentity();
@@ -205,7 +205,7 @@ async function getOrCreateDefaultWorld(ctx: MutationCtx) {
   return await createWorld(ctx);
 }
 
-async function shouldCreateAgents(
+export async function shouldCreateAgents(
   db: DatabaseReader,
   worldId: Id<'worlds'>,
   engineId: Id<'engines'>,

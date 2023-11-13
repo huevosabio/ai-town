@@ -1,8 +1,21 @@
 ## This is Ramon's log
 
+- [2023-11-12 13:24:15] ok, now let's do the lobby room functionality, this should
+  - provide a button to create a new lobby
+  - provide a button to join someone's lobby
+  - when you create a lobby, you should remove the default world and it should take you to 
+  - a view of the lobby, with the users 
+- [2023-11-12 11:18:54] back after a day break, I want to create the custom init, it should
+  - check who is in the party [done]
+  - remove their default worlds [done]
+  - create a new world [done]
+  - allocate secret code at random [done]
+  - allocate human characters at random [done]
+  - instantiate agents and players [done]
+  - set new world as default for users [done]
 - [2023-11-10 17:05:31] ok now I need to be able to create multi-player game from init
   - create a lobby schema [done]
-  - this may require a different init?
+  - this may require a different init? [done]
   - the init should be initiated from who is in the lobby, so maybe create a notion of a "party"?
   - when the party is all there, then you can start the game, which then goes to `initMultiPlayerGame` and assigns the players to characters
   - max the lobby at 3?

@@ -69,3 +69,5 @@ export const ENGINE_ACTION_DURATION = 30000;
 export const MEMORY_LOOKBACK = 10;
 
 export const DEFAULT_NUM_AGENTS = 4;
+
+export const AGENTS_PER_PLAYER = 3;

@@ -13,6 +13,8 @@ import ReactModal from 'react-modal';
 import MusicButton from './components/buttons/MusicButton.tsx';
 import Button from './components/buttons/Button.tsx';
 import NewGameButton from './components/buttons/NewGame.tsx';
+import Lobby from './components/Lobby.tsx';
+import NewMultiplayerGameButton from './components/buttons/NewMultiplayerGame.tsx';
 //import InteractButton from './components/buttons/InteractButton.tsx';
 //import FreezeButton from './components/FreezeButton.tsx';
 //import { MAX_HUMAN_PLAYERS } from '../convex/constants.ts';
@@ -92,12 +94,14 @@ export default function Home() {
         </p>
 
         <Game />
+        <Lobby />
 
         <footer className="absolute bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
           <div className="flex gap-4 flex-grow pointer-events-none">
             {/* <FreezeButton /> */}
             <MusicButton />
             <NewGameButton />
+            <NewMultiplayerGameButton />
             <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>
               Help
             </Button>

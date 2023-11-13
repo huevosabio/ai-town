@@ -93,9 +93,10 @@ export const aiTownTables = {
   }).index('byTokenId', ['tokenId']),
 
   // this is for multiplayer games
-  games: defineTable({
-    worldStatusId: v.id('worldStatus'),
+  parties: defineTable({
+    worldStatusId: v.optional(v.id('worldStatus')),
     users: v.array(v.id('users')),
+    hostId: v.id('users'),
     stage: v.union(
       v.literal('lobby'),
       v.literal('running'),

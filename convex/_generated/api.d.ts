@@ -61,6 +61,7 @@ import type * as util_sleep from "../util/sleep";
 import type * as util_types from "../util/types";
 import type * as util_xxhash from "../util/xxhash";
 import type * as world from "../world";
+import type * as zaraInit from "../zaraInit";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -118,6 +119,7 @@ declare const fullApi: ApiFromModules<{
   "util/types": typeof util_types;
   "util/xxhash": typeof util_xxhash;
   world: typeof world;
+  zaraInit: typeof zaraInit;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,
