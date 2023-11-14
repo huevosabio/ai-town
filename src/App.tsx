@@ -71,7 +71,7 @@ export default function Home() {
           </p>
         </div>
       </ReactModal>
-      <div className="p-6 absolute top-0 right-0 z-10 text-2xl">
+      <div className="p-3 absolute top-0 right-0 z-10 text-2xl">
         <Authenticated>
           <UserButton afterSignOutUrl="/ai-town" />
         </Authenticated>

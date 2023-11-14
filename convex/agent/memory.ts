@@ -1,4 +1,3 @@
-import { defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { ActionCtx, DatabaseReader, internalMutation, internalQuery } from '../_generated/server';
 import { Doc, Id } from '../_generated/dataModel';
@@ -8,51 +7,18 @@ import { asyncMap } from '../util/asyncMap';
 import { chatCompletionWithLogging } from '../util/chat_completion';
 import { GameId, agentId, conversationId, playerId } from '../aiTown/ids';
 import { SerializedPlayer } from '../aiTown/player';
+import { UseOllama, ollamaChatCompletion } from '../util/ollama';
+import { memoryFields } from './schema';
+
+//const completionFn = UseOllama ? ollamaChatCompletion : chatCompletion;
 
 // How long to wait before updating a memory's last access time.
 export const MEMORY_ACCESS_THROTTLE = 300_000; // In ms
 // We fetch 10x the number of memories by relevance, to have more candidates
 // for sorting by relevance + recency + importance.
 const MEMORY_OVERFETCH = 10;
-
 const selfInternal = internal.agent.memory;
 
-const memoryFields = {
-  playerId,
-  description: v.string(),
-  embeddingId: v.id('memoryEmbeddings'),
-  importance: v.number(),
-  lastAccess: v.number(),
-  data: v.union(
-    // Setting up dynamics between players
-    v.object({
-      type: v.literal('relationship'),
-      // The player this memory is about, from the perspective of the player
-      // whose memory this is.
-      playerId,
-    }),
-    v.object({
-      type: v.literal('conversation'),
-      conversationId,
-      // The other player(s) in the conversation.
-      playerIds: v.array(playerId),
-    }),
-    v.object({
-      type: v.literal('reflection'),
-      relatedMemoryIds: v.array(v.id('memories')),
-    }),
-    v.object({
-      type: v.literal('plan'),
-      relatedMemoryIds: v.array(v.id('memories')),
-    }),
-    v.object({
-      type: v.literal('event'),
-      conversationId: v.optional(conversationId),
-      // The other player(s) in the conversation.
-      playerIds: v.array(playerId),
-    }),
-  ),
-};
 export type Memory = Doc<'memories'>;
 export type MemoryType = Memory['data']['type'];
 export type MemoryOfType<T extends MemoryType> = Omit<Memory, 'data'> & {
@@ -73,7 +39,7 @@ export async function rememberConversation(
   });
   const { player, otherPlayer } = data;
   const {agentDescription} = await ctx.runQuery(selfInternal.loadAgentDescription, { worldId, agentId });
-  const messages = await ctx.runQuery(selfInternal.loadMessages, { conversationId });
+  const messages = await ctx.runQuery(selfInternal.loadMessages, { worldId, conversationId });
   const events = await ctx.runQuery(selfInternal.loadEventsFromConversation, {
     playerId,
     conversationId,
@@ -546,11 +512,13 @@ export const rankAndTouchMemories = internalMutation({
 });
 
 export const loadMessages = internalQuery({
-  args: { conversationId },
+  args: {
+    worldId: v.id('worlds'),
+    conversationId },
   handler: async (ctx, args): Promise<Doc<'messages'>[]> => {
     const messages = await ctx.db
       .query('messages')
-      .withIndex('conversationId', (q) => q.eq('conversationId', args.conversationId))
+      .withIndex('conversationId', (q) => q.eq('worldId', args.worldId).eq('conversationId', args.conversationId))
       .collect();
     return messages;
   },
@@ -562,8 +530,8 @@ async function calculateImportance(description: string, playerId: GameId<'player
       {
         role: 'user',
         content: `On the scale of 0 to 9, where 0 is purely mundane (e.g., brushing teeth, making bed) and 9 is extremely poignant (e.g., a break up, college acceptance), rate the likely poignancy of the following piece of memory.
-        Memory: ${description}
-        Answer on a scale of 0 to 9. Respond with number only, e.g. "5"`,
+      Memory: ${description}
+      Answer on a scale of 0 to 9. Respond with number only, e.g. "5"`,
       },
     ],
     temperature: 0.0,
@@ -769,23 +737,6 @@ export async function latestMemoryOfType<T extends MemoryType>(
   if (!entry) return null;
   return entry as MemoryOfType<T>;
 }
-
-export const memoryTables = {
-  memories: defineTable(memoryFields)
-    .index('embeddingId', ['embeddingId'])
-    .index('playerId_type', ['playerId', 'data.type'])
-    .index('playerId', ['playerId']),
-  memoryEmbeddings: defineTable({
-    playerId,
-    embedding: v.array(v.float64()),
-  }).vectorIndex('embedding', {
-    vectorField: 'embedding',
-    filterFields: ['playerId'],
-    dimensions: 1536,
-  }),
-};
-
-
 // queries events associated with a conversation
 export const loadEventsFromConversation = internalQuery({
   args: {

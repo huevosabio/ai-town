@@ -3,13 +3,16 @@ import { Id } from '../_generated/dataModel';
 import { ActionCtx, internalQuery } from '../_generated/server';
 import { LLMMessage } from '../util/openai';
 import { chatCompletionWithLogging } from '../util/chat_completion';
+//import { UseOllama, ollamaChatCompletion } from '../util/ollama';
 import * as memory from './memory';
 import { api, internal } from '../_generated/api';
 import * as embeddingsCache from './embeddingsCache';
 import {getAvailableFunctions} from '../util/llm_functions.js';
 import { GameId, conversationId, playerId } from '../aiTown/ids';
+import { NUM_MEMORIES_TO_SEARCH } from '../constants';
 
 const selfInternal = internal.agent.conversation;
+//const completionFn = UseOllama ? ollamaChatCompletion : chatCompletion;
 
 export async function startConversationMessage(
   ctx: ActionCtx,
@@ -31,7 +34,14 @@ export async function startConversationMessage(
     ctx,
     `What do you think about ${otherPlayer.name}?`,
   );
-  const memories = await memory.searchMemories(ctx, player.id as GameId<'players'>, embedding, 3);
+
+  const memories = await memory.searchMemories(
+    ctx,
+    player.id as GameId<'players'>,
+    embedding,
+    NUM_MEMORIES_TO_SEARCH(),
+  );
+
   const memoryWithOtherPlayer = memories.find(
     (m) => m.data.type === 'conversation' && m.data.playerIds.includes(otherPlayerId),
   );
