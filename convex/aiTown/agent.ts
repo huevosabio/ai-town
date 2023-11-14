@@ -79,7 +79,7 @@ export class Agent {
     }
     // check if we can run a slow operation if so do it
     if (this.inProgressSlowOp) {
-      if (now > this.inProgressSlowOp.started + ACTION_TIMEOUT) {
+      if (now > this.inProgressSlowOp.started + ACTION_TIMEOUT()) {
         // timed out
         console.log(`Timing out ${JSON.stringify(this.inProgressSlowOp)}`);
         delete this.inProgressSlowOp;
@@ -127,7 +127,7 @@ export class Agent {
       }
     }
     if (this.inProgressOperation) {
-      if (now < this.inProgressOperation.started + ACTION_TIMEOUT) {
+      if (now < this.inProgressOperation.started + ACTION_TIMEOUT()) {
         // Wait on the operation to finish.
         return;
       }
@@ -432,6 +432,7 @@ export const agentSendMessage = internalMutation({
       author: args.playerId,
       text: args.text,
       messageUuid: args.messageUuid,
+      worldId: args.worldId,
     });
     await insertInput(ctx, args.worldId, 'agentFinishSendingMessage', {
       conversationId: args.conversationId,
