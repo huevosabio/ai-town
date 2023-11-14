@@ -1,11 +1,34 @@
 import { useQuery, useMutation } from 'convex/react';
+import { useState, useEffect } from 'react';
+import { Id } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
 import Button from './buttons/Button.tsx';
 import interactImg from '../../assets/interact.svg';
 
 export default function Lobby() {
-  const partyData = useQuery(api.zaraInit.getParty);
   const startGame = useMutation(api.zaraInit.multiplayerInit);
+  const joinParty = useMutation(api.zaraInit.joinParty);
+  
+  const [partyId, setPartyId] = useState<string>();
+  useEffect(() => {
+    const parseParams = async () => {
+      const params = new URLSearchParams(window.location.search);
+      console.log(window.location);
+      console.log(params);
+      const partyId = params.get('partyId');
+      if (partyId){
+        setPartyId(partyId);
+      }
+    };
+    void parseParams();
+  }, []);
+
+  const partyData = useQuery(api.zaraInit.getParty, {partyId: partyId as Id<'parties'>});
+
+  if (partyId) {
+    console.log('Joining party ' + partyId);
+    joinParty({partyId: partyId as Id<'parties'>});
+  }
   if (!partyData) {
     return null;
   }
@@ -32,9 +55,16 @@ export default function Lobby() {
       {partyData.isHost && (
         <div>
           <Button imgUrl={interactImg} onClick={() => startGame({partyId: partyData.id})}>Start Game</Button>
-          <Button imgUrl={interactImg} onClick={sharePartyLink}>Share Game Link</Button>
         </div>
       )}
+      {!partyData.joined && (
+        <div>
+          <Button imgUrl={interactImg} onClick={() => startGame({partyId: partyData.id})}>Join Party</Button>
+        </div>
+      )}
+      <div>
+        <Button imgUrl={interactImg} onClick={sharePartyLink}>Share Game Link</Button>
+      </div>
     </div>
   );
 }

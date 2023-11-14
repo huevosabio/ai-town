@@ -46,7 +46,7 @@ export default function Game() {
         <div className="relative overflow-hidden bg-brown-900" ref={gameWrapperRef}>
           <div className="absolute inset-0">
             <div className="container">
-            <VictoryBanner gameStatus={worldStatus.status}/>
+            <VictoryBanner gameStatus={worldStatus}/>
               <Stage width={width} height={height} options={{ backgroundColor: 0x7ab5ff }}>
                 {/* Re-propagate context because contexts are not shared between renderers.
 https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}

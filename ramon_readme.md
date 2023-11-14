@@ -1,10 +1,23 @@
 ## This is Ramon's log
 
+- [2023-11-14 12:46:40] back after a meeting and breakfast
+  - so, now I need to fix the bugs below, let's start with the victory banner, that should be easy
+  - it was easy! ok now try to replicate the second bug; I have it again, so what is it?
+  - I think I know what it is: the conversation and author ids are global, so they end up mixing across worlds
+- [2023-11-14 10:25:05] ok, I have the basic logic for multiplayer, time to test
+  - BUG: clear leakage of prior conversations, f-me
+  - BUG: game does end when there is a last human, but the victory banner is not there :( [done]
+- [2023-11-13 12:28:21] I can start a game, but it still has the cooperative version (which we can bring back?) time to chagne the game conditions to match the Hv.H
+  - if reported, human loses, his player is removed -> callback after report [done]
+  - if gets secret code, human wins and game ends -> normal game result [done]
+  - if last human, human wins and game ends -> callback after report? [done]
+  - need to change the status of the game so the banner shows who won or if you lost [done]
+- [2023-11-13 12:03:53] I have a janky lobby system, but the returend game is all wrong, going to check that
 - [2023-11-12 13:24:15] ok, now let's do the lobby room functionality, this should
-  - provide a button to create a new lobby
-  - provide a button to join someone's lobby
-  - when you create a lobby, you should remove the default world and it should take you to 
-  - a view of the lobby, with the users 
+  - provide a button to create a new lobby [done]
+  - provide a button to join someone's lobby [done]
+  - when you create a lobby, you should remove the default world and it should take you to there
+  - a view of the lobby, with the users  [done]
 - [2023-11-12 11:18:54] back after a day break, I want to create the custom init, it should
   - check who is in the party [done]
   - remove their default worlds [done]

@@ -24,15 +24,10 @@ export const multiplayerInit = mutation({
           '/settings?var=OPENAI_API_KEY',
       );
     }
-    const identity = (await ctx.auth.getUserIdentity())!;
-    const user = await ctx.db
-      .query('users')
-      .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
-      .first()
+    let {identity, user } = await getUser(ctx);
     if (!user) {
-      throw new Error('User not found');
+      user = (await createUser(ctx))!;
     }
-
 
     // Get the party
     const party = await ctx.db.get(args.partyId);
@@ -127,13 +122,23 @@ export const multiplayerInit = mutation({
     for (const userId of party.users) {
       await ctx.db.patch(userId, { defaultWorldStatusId: worldStatus._id });
     }
+    // add users status to world
+    await ctx.db.patch(worldStatus._id, {
+      userStatus: party.users.map(
+        (userId) => ({userId: userId, status: 'playing' as const}),
+      ),
+      isSoloGame: false,
+    });
   },
 });
 
 export const createParty = mutation({
   args: {},
   handler: async (ctx, args) => {
-    const user = await getUser(ctx);
+    let {user} = await getUser(ctx);
+    if (!user) {
+      user = (await createUser(ctx))!;
+    }
     await finishPreviousParties(ctx, user);
 
     // remove default world if it exists
@@ -155,7 +160,11 @@ export const joinParty = mutation({
     partyId: v.id('parties'),
   },
   handler: async (ctx, args) => {
-    const user = await getUser(ctx);
+    let {user} = await getUser(ctx);
+    if (!user) {
+      // create user if it doesn't exist
+      user = (await createUser(ctx))!;
+    }
     await finishPreviousParties(ctx, user);
 
     const party = await ctx.db.get(args.partyId);
@@ -177,30 +186,42 @@ export const joinParty = mutation({
 });
 
 export const getParty = query({
-  args: {},
+  args: {
+    partyId: v.optional(v.id('parties')),
+  },
   handler: async (ctx, args) => {
     // get authed user
-    console.log(ctx);
-    const user = await getUser(ctx);
-
-    // get party if it exists
-    const parties = await ctx.db
-      .query('parties')
-      .filter((q) => q.eq(q.field('stage'), 'lobby'))
-      .collect();
-    const party = parties.find((party) => party.users.includes(user._id));
-    if (!party) {
+    const {user} = await getUser(ctx);
+    if (!user) {
       return null;
     }
 
-    const users = await Promise.all(party.users.map((userId) => ctx.db.get(userId)));
-    const userNames = users.map(
-      (u) => ({username: u?.username, isHost: u?._id === party.hostId})
-    );
-    return {
-      id: party._id,
-      users: userNames,
-      isHost: party.hostId === user._id,
+    let party: Doc<'parties'> | undefined | null;
+    if (args.partyId) {
+      party = await ctx.db.get(args.partyId);
+    } else {
+      // get party if it exists
+      const parties = await ctx.db
+        .query('parties')
+        .filter((q) => q.eq(q.field('stage'), 'lobby'))
+        .collect();
+      party = parties.find((party) => party.users.includes(user._id));
+    }
+
+    
+    if (!party || party?.stage !== 'lobby') {
+      return null;
+    } else{
+      const users = await Promise.all(party.users.map((userId) => ctx.db.get(userId)));
+      const userNames = users.map(
+        (u) => ({username: u?.username, isHost: u?._id === party?.hostId})
+      );
+      return {
+        id: party._id,
+        users: userNames,
+        isHost: party.hostId === user._id,
+        joined: party.users.includes(user._id),
+      }
     }
   }
 });
@@ -209,6 +230,7 @@ export async function finishPreviousParties(
   ctx: MutationCtx,
   user: Doc<'users'>,
 ) {
+    // finish any previous parties from which you were host
     const parties = await ctx.db
       .query('parties')
       .filter((q) => q.eq(q.field('stage'), 'lobby'))
@@ -217,23 +239,65 @@ export async function finishPreviousParties(
     for (const party of parties) {
       await ctx.db.patch(party._id, { stage: 'finished' });
     }
+
+    // remove yourself from parties in which you were a member
+    const parties2 = (await ctx.db
+      .query('parties')
+      .filter((q) => q.eq(q.field('stage'), 'lobby'))
+      .collect())
+      .filter((party) => party.users.includes(user._id));
+    for (const party of parties2) {
+      await ctx.db.patch(party._id, { users: party.users.filter((u) => u !== user._id) });
+    }
 };
 
 export async function getUser(
   ctx: MutationCtx | QueryCtx
 ) {
-  console.log(ctx);
   const identity = await ctx.auth.getUserIdentity();
-  console.log(identity);
   if (!identity) {
-    throw new Error('Identity not found');
+    return {identity: null, user: null};
+  }
+  const user = await ctx.db
+    .query('users')
+    .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
+    .first()
+  return {identity, user};
+}
+
+export async function createUser(
+  ctx: MutationCtx
+) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error('No user identity found');
   }
   const user = await ctx.db
     .query('users')
     .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
     .first()
   if (!user) {
-    throw new Error('User not found');
+    const userId = await ctx.db.insert('users', {
+      username: identity.givenName ?? 'Anonymous',
+      tokenId: identity.tokenIdentifier,
+    });
+    return await ctx.db.get(userId);
+  } else {
+    return user;
   }
-  return user;
-}
+};
+
+export const getUserId = query({
+  args: {},
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+    const user = await ctx.db
+      .query('users')
+      .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
+      .first()
+    return user?._id;
+  },
+});

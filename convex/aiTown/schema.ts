@@ -30,6 +30,16 @@ export const aiTownTables = {
       v.literal('stoppedByUser'),
     ),
     isSoloGame: v.boolean(),
+    userStatus: v.optional(v.array(v.object({
+      userId: v.id('users'),
+      status: v.union(
+        v.literal('playing'),
+        v.literal('lost-reported'),
+        v.literal('lost-other-won'),
+        v.literal('won-code'),
+        v.literal('won-last-human'),
+      )
+    }))),
   }).index('worldId', ['worldId']),
 
   // This table contains the map data for a given world. Since it's a bit larger than the player

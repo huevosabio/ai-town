@@ -123,14 +123,7 @@ export const agentGenerateMessage = internalAction({
             'agentReported',
             args.conversationId as GameId<'conversations'>,
           )
-          // stop if this is a human
-          // this should be a human
-          await ctx.runMutation(internal.aiTown.zaranovaLogic.stopIfHumanReported, {
-            worldId: args.worldId,
-            playerId: args.otherPlayerId,
-          });
-          // otherwise boot if its an ai
-          await ctx.runMutation(internal.aiTown.zaranovaLogic.bootAIIfReported, {
+          await ctx.runMutation(internal.aiTown.zaranovaLogic.handleReportedPlayer, {
             worldId: args.worldId,
             playerId: args.otherPlayerId,
           });
