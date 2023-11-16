@@ -150,8 +150,8 @@ body {
     font-size: 16px;
   }
 
-  .button > div,
-  .button > span {
+  .button>div,
+  .button>span {
     vertical-align: top;
     line-height: 1;
   }
@@ -173,4 +173,49 @@ body {
 p[contenteditable='true']:empty::before {
   content: attr(placeholder);
   color: #aaa;
+}
+
+/* retro table, remove if needed */
+
+.retro-table {
+  border-collapse: collapse;
+  width: 100%;
+  color: #0f0;
+  /* bright green, typical for retro displays */
+  background: #000;
+  /* dark background for contrast */
+  /*font-family: 'Press Start 2P', cursive; */
+  /* a font that looks like old computer displays */
+}
+
+.retro-table th,
+.retro-table td {
+  border: 1px solid #333;
+  /* pixelated border */
+  padding: 8px;
+  text-align: left;
+}
+
+.retro-table th {
+  background: #222;
+  /* slightly lighter background for headers */
+}
+
+.retro-table td {
+  background: #111;
+  /* dark cells for contrast */
+}
+
+.retro-table tr:nth-child(even) {
+  background-color: #222;
+  /* zebra striping for rows */
+}
+
+.retro-table th::after {
+  content: '';
+  display: block;
+  height: 1px;
+  margin-top: 5px;
+  background-image: linear-gradient(to right, transparent, #0f0, transparent);
+  /* subtle glow effect */
 }

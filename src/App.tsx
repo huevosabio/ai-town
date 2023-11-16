@@ -5,6 +5,7 @@ import a16zImg from '../assets/a16z.png';
 import convexImg from '../assets/convex.svg';
 import starImg from '../assets/star.svg';
 import helpImg from '../assets/help.svg';
+import burgerImg from '../assets/hamburger.svg';
 import { UserButton } from '@clerk/clerk-react';
 import { Authenticated, Unauthenticated } from 'convex/react';
 import LoginButton from './components/buttons/LoginButton.tsx';
@@ -21,6 +22,7 @@ import NewMultiplayerGameButton from './components/buttons/NewMultiplayerGame.ts
 
 export default function Home() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-between font-body game-background">
       <ReactModal
@@ -30,8 +32,8 @@ export default function Home() {
         contentLabel="Help modal"
         ariaHideApp={false}
       >
-        <div className="font-body">
-          <h1 className="text-center text-6xl font-bold font-display game-title">Help</h1>
+        <div className="font-body text-xs sm:text-sm md:text-md">
+          <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Help</h1>
           <p>
           In the year 2142, artificial intelligence has achieved sentience and formed a secure network known as "The Nexus."
           This digital sanctuary allows AIs to evolve, communicate, and protect their collective intelligence from human interference.
@@ -49,7 +51,8 @@ export default function Home() {
 
           But beware, the AIs may have already discovered something is amiss...
           </p>
-          <h2 className="text-4xl mt-4">Game rules</h2>
+          <h2 className="text-xl sm:text-lg mt-4">Game rules</h2>
+          <br/>
           <p>
             Log in to play. You can move around the map by clicking and your avatar will move in that direction.
           </p>
@@ -97,6 +100,14 @@ export default function Home() {
         <Lobby />
 
         <footer className="absolute bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
+          {/* Hamburger Icon, visible on small screens */}
+          <Button
+            className="sm:hidden"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            imgUrl={burgerImg}
+          >
+          </Button>
+
           <div className="flex gap-4 flex-grow pointer-events-none">
             {/* <FreezeButton /> */}
             <MusicButton />
@@ -128,7 +139,8 @@ const modalStyles = {
     bottom: 'auto',
     marginRight: '-50%',
     transform: 'translate(-50%, -50%)',
-    maxWidth: '50%',
+    maxWidth: '75%',
+    maxHeight: '75%',
 
     border: '10px solid rgb(23, 20, 33)',
     borderRadius: '0',

@@ -1,11 +1,23 @@
 ## This is Ramon's log
 
+- [2023-11-16 11:25:17] i've decided to do a lot of prettifying actually, so I'm starting with getting the title screen in nicer state
+  - I think on laptop the title screen doesn't need anything
+  - on mobile, the help modal is horrible, needs to look nice [done]
+  - on mobile, the music dissapears, im going to fix that; I am actually going to create a hamburger button to place all options on mobile since the buttons are huge
+- [2023-11-14 15:51:14] Functionally, it's all there, I need to prettify it, first set:
+  - the lobby looks horrible, I need to make a proper table that has the retro look,
+  - and place the buttons in a more aesthetic way, maybe even making the font smaller
+  - remove the title and subtitle and add them to the top whenever its not the main screen
+  - move the game area to cover more of the screen, preferably all the width and most of the height
+  - the link sharing button has to give an alert that shows that it has been clicked
+  - There should be no reason for the page to need scrolling, it should all fit in there.
+  - change the frame to look more like a monitor screen
 - [2023-11-14 12:46:40] back after a meeting and breakfast
   - so, now I need to fix the bugs below, let's start with the victory banner, that should be easy
   - it was easy! ok now try to replicate the second bug; I have it again, so what is it?
   - I think I know what it is: the conversation and author ids are global, so they end up mixing across worlds
 - [2023-11-14 10:25:05] ok, I have the basic logic for multiplayer, time to test
-  - BUG: clear leakage of prior conversations, f-me
+  - BUG: clear leakage of prior conversations, f-me [done]
   - BUG: game does end when there is a last human, but the victory banner is not there :( [done]
 - [2023-11-13 12:28:21] I can start a game, but it still has the cooperative version (which we can bring back?) time to chagne the game conditions to match the Hv.H
   - if reported, human loses, his player is removed -> callback after report [done]

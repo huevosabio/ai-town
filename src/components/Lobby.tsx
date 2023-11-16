@@ -4,6 +4,7 @@ import { Id } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
 import Button from './buttons/Button.tsx';
 import interactImg from '../../assets/interact.svg';
+import RetroTable from './RetroTable.tsx';
 
 export default function Lobby() {
   const startGame = useMutation(api.zaraInit.multiplayerInit);
@@ -40,30 +41,37 @@ export default function Lobby() {
     //alert('Party link copied to clipboard!');
   }
 
+  const tableData = {
+    columns: [
+      { header: 'Username', field: 'username' },
+      { header: 'Status', field: 'status' },
+    ],
+    rows: partyData.users.map((user) => ({
+      username: user.username ?? 'Anonymous',
+      status: user.isHost ? 'Host' : 'Joined',
+    })),
+  };
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-      <div>
-        <h1>Lobby</h1>
-        <ul>
-          {partyData.users.map((user) => (
-            <li key={user.username}>
-              {user.username} {user.isHost && '(Host)'}
-            </li>
-          ))}
-        </ul>
-      </div>
-      {partyData.isHost && (
+    <div className="mx-auto w-full max-w mt-2 sm:mt-7 grid grid-rows-[240px_1fr] lg:grid-rows-[1fr] lg:grid-cols-[1fr_auto] lg:h-[700px] max-w-[1400px] min-h-[480px] game-frame">
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <div>
-          <Button imgUrl={interactImg} onClick={() => startGame({partyId: partyData.id})}>Start Game</Button>
+          <h1>Lobby</h1>
+          <RetroTable {...tableData} />
         </div>
-      )}
-      {!partyData.joined && (
+        {partyData.isHost && (
+          <div>
+            <Button imgUrl={interactImg} onClick={() => startGame({partyId: partyData.id})}>Start Game</Button>
+          </div>
+        )}
+        {!partyData.joined && (
+          <div>
+            <Button imgUrl={interactImg} onClick={() => startGame({partyId: partyData.id})}>Join Party</Button>
+          </div>
+        )}
         <div>
-          <Button imgUrl={interactImg} onClick={() => startGame({partyId: partyData.id})}>Join Party</Button>
+          <Button imgUrl={interactImg} onClick={sharePartyLink}>Share Game Link</Button>
         </div>
-      )}
-      <div>
-        <Button imgUrl={interactImg} onClick={sharePartyLink}>Share Game Link</Button>
       </div>
     </div>
   );

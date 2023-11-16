@@ -269,6 +269,7 @@ export async function createUser(
   ctx: MutationCtx
 ) {
   const identity = await ctx.auth.getUserIdentity();
+  console.log(identity);
   if (!identity) {
     throw new Error('No user identity found');
   }
