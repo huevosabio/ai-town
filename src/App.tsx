@@ -99,28 +99,40 @@ export default function Home() {
         <Game />
         <Lobby />
 
-        <footer className="absolute bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
-          {/* Hamburger Icon, visible on small screens */}
-          <Button
-            className="sm:hidden"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            imgUrl={burgerImg}
-          >
-          </Button>
+        <footer className="fixed inset-x-0 bottom-0 p-4 z-10">
+  {/* Hamburger Menu Toggle */}
+  <Button
+    className="sm:hidden z-30 absolute left-4 bottom-4"
+    onClick={() => setIsMenuOpen(!isMenuOpen)}
+    imgUrl={burgerImg}
+  >
+  </Button>
 
-          <div className="flex gap-4 flex-grow pointer-events-none">
-            {/* <FreezeButton /> */}
-            <MusicButton />
-            <NewGameButton />
-            <NewMultiplayerGameButton />
-            <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>
-              Help
-            </Button>
-          </div>
-          <a href="https://github.com/a16z-infra/ai-town">
-            Made with AI Town.
-          </a>
-        </footer>
+  {/* Menu Content */}
+  <div className={`absolute bottom-0 left-4 z-20 flex flex-col items-end ${isMenuOpen ? 'flex' : 'hidden'} sm:hidden`}>
+    {/* Align 'Help' button with the hamburger menu */}
+    <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)} className="mb-16">Help</Button>
+    {/* Other buttons */}
+    <MusicButton />
+    <NewGameButton />
+    <NewMultiplayerGameButton />
+  </div>
+
+  {/* Visible on larger screens */}
+  <div className="invisible sm:visible flex gap-4 flex-grow pointer-events-none">
+    <MusicButton />
+    <NewGameButton />
+    <NewMultiplayerGameButton />
+    <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>Help</Button>
+  </div>
+
+  {/* Footer Content */}
+  <div className="absolute right-4 bottom-4">
+    <a href="https://github.com/a16z-infra/ai-town" className="pointer-events-auto">
+      Made with AI Town.
+    </a>
+  </div>
+</footer>
         <ToastContainer position="bottom-right" autoClose={2000} closeOnClick theme="dark" />
       </div>
     </main>
