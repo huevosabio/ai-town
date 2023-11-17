@@ -1,9 +1,12 @@
 ## This is Ramon's log
 
+- [2023-11-16 17:33:52] improve the buttons for non mobile, I think keeping a smaller text works better
+- [2023-11-16 14:26:05] bugs
+  - if you have an open lobby it appears when you creat a gam, I need to close past lobbys when I start a new game
 - [2023-11-16 11:25:17] i've decided to do a lot of prettifying actually, so I'm starting with getting the title screen in nicer state
   - I think on laptop the title screen doesn't need anything
   - on mobile, the help modal is horrible, needs to look nice [done]
-  - on mobile, the music dissapears, im going to fix that; I am actually going to create a hamburger button to place all options on mobile since the buttons are huge
+  - on mobile, the music dissapears, im going to fix that; I am actually going to create a hamburger button to place all options on mobile since the buttons are huge [done]
 - [2023-11-14 15:51:14] Functionally, it's all there, I need to prettify it, first set:
   - the lobby looks horrible, I need to make a proper table that has the retro look,
   - and place the buttons in a more aesthetic way, maybe even making the font smaller

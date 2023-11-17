@@ -109,21 +109,19 @@ export default function Home() {
   </Button>
 
   {/* Menu Content */}
-  <div className={`absolute bottom-0 left-4 z-20 flex flex-col items-end ${isMenuOpen ? 'flex' : 'hidden'} sm:hidden`}>
-    {/* Align 'Help' button with the hamburger menu */}
-    <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)} className="mb-16">Help</Button>
-    {/* Other buttons */}
+  <div className={`absolute bottom-0 left-4 z-20 ${isMenuOpen ? 'flex' : 'hidden'} sm:hidden flex-col items-start pb-16`}>
+    <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>Help</Button>
     <MusicButton />
     <NewGameButton />
     <NewMultiplayerGameButton />
   </div>
 
   {/* Visible on larger screens */}
-  <div className="invisible sm:visible flex gap-4 flex-grow pointer-events-none">
+  <div className="hidden sm:flex sm:items-end gap-4">
     <MusicButton />
     <NewGameButton />
     <NewMultiplayerGameButton />
-    <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>Help</Button>
+    {/* ...other buttons */}
   </div>
 
   {/* Footer Content */}
@@ -133,6 +131,7 @@ export default function Home() {
     </a>
   </div>
 </footer>
+
         <ToastContainer position="bottom-right" autoClose={2000} closeOnClick theme="dark" />
       </div>
     </main>
