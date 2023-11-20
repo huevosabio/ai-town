@@ -50,7 +50,7 @@ const VictoryBanner: React.FC<VictoryBannerProps> = ({ gameStatus }) => {
   }
 
   return (
-    <div className="mx-auto text-center text-6xl sm:text-8xl lg:text-9xl font-bold font-display leading-none tracking-wide game-title">
+    <div style={victoryBannerStyles} className="mx-auto text-center text-6xl sm:text-8xl lg:text-9xl font-bold font-display leading-none tracking-wide game-title">
       <h1>{gameOverBanner}</h1>
       <p className="mx-auto my-4 text-center text-xl sm:text-2xl text-white leading-tight">{subtext}</p>
     </div>
@@ -59,3 +59,13 @@ const VictoryBanner: React.FC<VictoryBannerProps> = ({ gameStatus }) => {
 };
 
 export default VictoryBanner;
+
+const victoryBannerStyles = {
+  position: 'absolute',
+  top: '50%',
+  left: '0',
+  width: '100%',
+  transform: 'translateY(-50%)',
+  opacity: '0.95',
+  zIndex: '1'
+}

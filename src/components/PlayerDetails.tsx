@@ -132,8 +132,8 @@ export default function PlayerDetails({
   return (
     <>
       <div className="flex gap-4">
-        <div className="box w-3/4 sm:w-full mr-auto">
-          <h2 className="bg-brown-700 p-2 font-display text-2xl sm:text-4xl tracking-wider shadow-solid text-center">
+        <div className="box w-3/4 lg:w-full mr-auto">
+          <h2 className="bg-brown-700 p-2 font-display text-lg lg:text-xl tracking-wider shadow-solid text-center">
             {playerDescription?.name}
           </h2>
         </div>
@@ -142,14 +142,14 @@ export default function PlayerDetails({
           onClick={() => setSelectedElement(undefined)}
         >
           <h2 className="h-full bg-clay-700">
-            <img className="w-4 h-4 sm:w-5 sm:h-5" src={closeImg} />
+            <img className="w-4 h-4 lg:w-5 lg:h-5" src={closeImg} />
           </h2>
         </a>
       </div>
       {canInvite && (
         <a
           className={
-            'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
+            'mt-6 button text-white shadow-solid text-lg cursor-pointer pointer-events-auto' +
             pendingSuffix('startConversation')
           }
           onClick={onStartConversation}
@@ -160,7 +160,7 @@ export default function PlayerDetails({
         </a>
       )}
       {waitingForAccept && (
-        <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
+        <a className="mt-6 button text-white shadow-solid text-lg cursor-pointer pointer-events-auto opacity-50">
           <div className="h-full bg-clay-700 text-center">
             <span>Waiting for accept...</span>
           </div>
@@ -214,7 +214,7 @@ export default function PlayerDetails({
       )}
       {!playerConversation && player.activity && player.activity.until > Date.now() && (
         <div className="box flex-grow mt-6">
-          <h2 className="bg-brown-700 text-base sm:text-lg text-center">
+          <h2 className="bg-brown-700 text-sm lg:text-base text-center">
             {player.activity.description}
           </h2>
         </div>
