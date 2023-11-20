@@ -1,6 +1,20 @@
 ## This is Ramon's log
 
-- [2023-11-16 17:33:52] improve the buttons for non mobile, I think keeping a smaller text works better
+- [2023-11-20 12:57:03] it seems we have further leakage :(
+    - its also because of non-unique player ids :( 
+    - so I need to pass world id, but memories are already not worldId related; sort of needing to do unique ids
+- [2023-11-20 08:50:55] prettification tasks:
+  - top "navbar" needs to always be clear not overlap with the game [done]
+  - game frame border has to be much smaller [done]
+  - the top part of the chat should have the character's face
+  - the win/lose banner should be centered and across the screen with low opacity background
+  - mobile screen should show the map or the chat, but not both [done]
+    - when no conversation is on, it should be just on the bottom; [done]
+    - when there is an ongoing conversation, it should take the whole game area [done]
+  - when in mobile mode, the bottom buttons should not appear [done]
+- [2023-11-19 20:25:44] Ok, I'm going to change the frame such that it fits most of the screen except the title area
+- [2023-11-17 09:53:21] Ok, I am going to make the title a navbar thing if we have either an active lobby or game [done];
+- [2023-11-16 17:33:52] improve the buttons for non mobile, I think keeping a smaller text works better [done]
 - [2023-11-16 14:26:05] bugs
   - if you have an open lobby it appears when you creat a gam, I need to close past lobbys when I start a new game
 - [2023-11-16 11:25:17] i've decided to do a lot of prettifying actually, so I'm starting with getting the title screen in nicer state

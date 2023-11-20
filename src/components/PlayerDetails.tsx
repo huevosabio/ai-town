@@ -230,7 +230,7 @@ export default function PlayerDetails({
       )}
       {!playerConversation && previousConversation && (
         <>
-          <div className="box flex-grow">
+          <div className="box">
             <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
           </div>
           <Messages

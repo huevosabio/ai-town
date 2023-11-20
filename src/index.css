@@ -58,7 +58,7 @@ body {
 }
 
 .game-frame {
-  border-width: 36px;
+  border-width: 4px;
   border-image-source: url(../assets/ui/frame.svg);
   border-image-repeat: stretch;
   border-image-slice: 25%;
@@ -83,7 +83,7 @@ body {
 
 @media screen and (min-width: 640px) {
   .game-frame {
-    border-width: 48px;
+    border-width: 4px;
   }
 }
 

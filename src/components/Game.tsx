@@ -15,7 +15,7 @@ import { useServerGame } from '../hooks/serverGame.ts';
 
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
-export default function Game() {
+export default function Game({ setActiveGame }: { setActiveGame: (active: boolean) => void}) {
   const convex = useConvex();
   const [selectedElement, setSelectedElement] = useState<{
     kind: 'player';
@@ -35,13 +35,23 @@ export default function Game() {
   const worldState = useQuery(api.world.worldState, worldId ? { worldId } : 'skip');
   const { historicalTime, timeManager } = useHistoricalTime(worldState?.engine);
 
+  console.log('Game.tsx: worldId: ' + worldId + ', engineId: ' + engineId + ', game: ' + game);
   if (!worldId || !engineId || !game) {
+    console.log('NOTHING FOUND!');
+    setActiveGame(false);
     return null;
+  } else {
+    setActiveGame(true);
   }
   return (
     <>
       {SHOW_DEBUG_UI && <DebugTimeManager timeManager={timeManager} width={200} height={100} />}
-      <div className="mx-auto w-full max-w mt-2 sm:mt-7 grid grid-rows-[240px_1fr] lg:grid-rows-[1fr] lg:grid-cols-[1fr_auto] lg:h-[700px] max-w-[1400px] min-h-[480px] game-frame">
+      <div className={`
+        mx-auto w-full h-full mt-1 sm:mt-1 grid 
+        lg:grid-rows-[1fr] lg:grid-cols-[1fr_auto]
+        max-h-full max-w-screen game-frame
+        ${selectedElement ? 'grid-rows-[0px_1fr]' : 'grid-rows-[1fr_180px]'}
+      `}>
         {/* Game area */}
         <div className="relative overflow-hidden bg-brown-900" ref={gameWrapperRef}>
           <div className="absolute inset-0">
@@ -66,7 +76,14 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
           </div>
         </div>
         {/* Right column area */}
-        <div className="flex flex-col overflow-y-auto shrink-0 px-4 py-6 sm:px-6 lg:w-96 xl:pr-6 border-t-8 sm:border-t-0 sm:border-l-8 border-brown-900  bg-brown-800 text-brown-100">
+        <div className={`
+          flex flex-col shrink-0 px-4
+          py-6 sm:px-6 lg:w-96 xl:pr-6 border-t-8
+          sm:border-t-0 sm:border-l-8 border-brown-900 
+          bg-brown-800 text-brown-100
+          h-full
+          overflow-y-scroll
+          `}>
           <PlayerDetails
             worldId={worldId}
             engineId={engineId}

@@ -6,7 +6,7 @@ import Button from './buttons/Button.tsx';
 import interactImg from '../../assets/interact.svg';
 import RetroTable from './RetroTable.tsx';
 
-export default function Lobby() {
+export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolean) => void}) {
   const startGame = useMutation(api.zaraInit.multiplayerInit);
   const joinParty = useMutation(api.zaraInit.joinParty);
   
@@ -31,7 +31,10 @@ export default function Lobby() {
     joinParty({partyId: partyId as Id<'parties'>});
   }
   if (!partyData) {
+    setActiveLobby(false);
     return null;
+  } else {
+    setActiveLobby(true);
   }
 
   const sharePartyLink = () => {
