@@ -60,12 +60,12 @@ const VictoryBanner: React.FC<VictoryBannerProps> = ({ gameStatus }) => {
 
 export default VictoryBanner;
 
-const victoryBannerStyles = {
+const victoryBannerStyles: React.CSSProperties = {
   position: 'absolute',
   top: '50%',
   left: '0',
   width: '100%',
   transform: 'translateY(-50%)',
   opacity: '0.95',
-  zIndex: '1'
+  zIndex: 1
 }

@@ -1,13 +1,16 @@
 ## This is Ramon's log
 
+- [2023-11-20 18:36:06] time to revamp the lobby
+  - there is a weird glitch that some of the elements have weird white stuff on the right but only on my other browser[TODO]
+  - I need to decide what I am going to fill the right side with, maybe a pic explaining the game?
 - [2023-11-20 12:57:03] it seems we have further leakage :(
-    - its also because of non-unique player ids :( 
-    - so I need to pass world id, but memories are already not worldId related; sort of needing to do unique ids
+    - its also because of non-unique player ids :( [TODO]
+    - so I need to pass world id, but memories are already not worldId related; sort of needing to do unique ids [TODO]
 - [2023-11-20 08:50:55] prettification tasks:
   - top "navbar" needs to always be clear not overlap with the game [done]
   - game frame border has to be much smaller [done]
-  - the top part of the chat should have the character's face
-  - the win/lose banner should be centered and across the screen with low opacity background
+  - the top part of the chat should have the character's face [done]
+  - the win/lose banner should be centered and across the screen with low opacity background [done, well not the background, but alas]
   - mobile screen should show the map or the chat, but not both [done]
     - when no conversation is on, it should be just on the bottom; [done]
     - when there is an ongoing conversation, it should take the whole game area [done]

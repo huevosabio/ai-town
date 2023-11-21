@@ -219,3 +219,10 @@ p[contenteditable='true']:empty::before {
   background-image: linear-gradient(to right, transparent, #0f0, transparent);
   /* subtle glow effect */
 }
+
+.multiplayer-help {
+  border: 10px solid rgb(23, 20, 33);
+  border-radius: 0;
+  background: rgb(35, 38, 58);
+  color: white;
+}

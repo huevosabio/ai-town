@@ -133,6 +133,7 @@ export default function Home() {
 
           {/* Visible on larger screens */}
           <div className="hidden lg:flex lg:items-end gap-4">
+            <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>Help</Button>
             <MusicButton />
             <NewGameButton />
             <NewMultiplayerGameButton />
