@@ -36,6 +36,7 @@ export const aiTownTables = {
         v.literal('playing'),
         v.literal('lost-reported'),
         v.literal('lost-other-won'),
+        v.literal('lost-idle'),
         v.literal('won-code'),
         v.literal('won-last-human'),
       )

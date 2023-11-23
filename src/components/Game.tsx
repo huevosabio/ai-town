@@ -35,9 +35,7 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
   const worldState = useQuery(api.world.worldState, worldId ? { worldId } : 'skip');
   const { historicalTime, timeManager } = useHistoricalTime(worldState?.engine);
 
-  console.log('Game.tsx: worldId: ' + worldId + ', engineId: ' + engineId + ', game: ' + game);
   if (!worldId || !engineId || !game) {
-    console.log('NOTHING FOUND!');
     setActiveGame(false);
     return null;
   } else {

@@ -10,10 +10,8 @@ interface VictoryBannerProps {
 const VictoryBanner: React.FC<VictoryBannerProps> = ({ gameStatus }) => {
   const userId = useQuery(api.zaraInit.getUserId) ?? null;
   const userStatus = gameStatus.userStatus?.find((s) => s.userId === userId)?.status;
-  console.log('userStatus', userStatus);
   let gameOverBanner = null;
   let subtext = null;
-  console.log(gameStatus.isSoloGame, gameStatus.status);
   if (gameStatus.isSoloGame) {
     if (gameStatus.status === 'stoppedByHumanVictory') {
       gameOverBanner = 'Human wins!';

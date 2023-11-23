@@ -2,34 +2,55 @@ import { useQuery, useMutation } from 'convex/react';
 import { useState, useEffect } from 'react';
 import { Id } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
+import { toastOnError } from '../toasts';
 import Button from './buttons/Button.tsx';
 import interactImg from '../../assets/interact.svg';
 import RetroTable from './RetroTable.tsx';
+import { toast } from 'react-toastify';
+import { useConvexAuth } from "convex/react";
 
 export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolean) => void}) {
   const startGame = useMutation(api.zaraInit.multiplayerInit);
   const joinParty = useMutation(api.zaraInit.joinParty);
+  const leaveParty = useMutation(api.zaraInit.leaveParty);
   
   const [partyId, setPartyId] = useState<string>();
+  const { isLoading, isAuthenticated } = useConvexAuth();
+
   useEffect(() => {
-    const parseParams = async () => {
-      const params = new URLSearchParams(window.location.search);
-      console.log(window.location);
-      console.log(params);
-      const partyId = params.get('partyId');
-      if (partyId){
-        setPartyId(partyId);
-      }
-    };
-    void parseParams();
-  }, []);
+    if (isAuthenticated) {
+      const parseParams = async () => {
+        const params = new URLSearchParams(window.location.search);
+        console.log(params);
+        console.log(window.location);
+        console.log(params);
+        const partyId = params.get('partyId');
+        if (partyId){
+          setPartyId(partyId);
+        }
+      };
+      void parseParams();
+    }
+  }, [isAuthenticated]);
+
+  const joinPartyWithToast = async (partyId: string) => {
+    await toastOnError(joinParty({partyId: partyId as Id<'parties'>}));
+  }
+
+  useEffect(() => {
+    if (partyId && isAuthenticated) {
+      console.log('Joining party ' + partyId);
+      joinPartyWithToast(partyId);
+      // delete search params if exist
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      console.log('No party id');
+    }
+  }, [partyId, isAuthenticated]);
+
 
   const partyData = useQuery(api.zaraInit.getParty, {partyId: partyId as Id<'parties'>});
 
-  if (partyId) {
-    console.log('Joining party ' + partyId);
-    joinParty({partyId: partyId as Id<'parties'>});
-  }
   if (!partyData) {
     setActiveLobby(false);
     return null;
@@ -37,11 +58,18 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
     setActiveLobby(true);
   }
 
+
   const sharePartyLink = () => {
     const url = window.location.origin + '/?partyId=' + partyData.id;
     navigator.clipboard.writeText(url);
     console.log(url);
     //alert('Party link copied to clipboard!');
+  }
+
+  const leavePartyButton = () => {
+    leaveParty({partyId: partyData.id});
+    setActiveLobby(false);
+    setPartyId(undefined);
   }
 
   const tableData = {
@@ -78,7 +106,7 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
           </h2>
         </div>
       </div>
-      {partyData.isHost && (
+      {partyData.isHost && partyData.users.length > 1 && (
           <a
           className='mt-6 button text-white shadow-solid text-base lg:text-lg cursor-pointer pointer-events-auto'
           onClick={() => startGame({partyId: partyData.id})}
@@ -106,7 +134,7 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
           <span>Share Game Link</span>
         </h2>
       </a>
-      <div className="box mt-6">
+        <div className="box mt-6">
           <h2 className="bg-brown-700 text-sm lg:text-base text-center">
             Players
           </h2>
@@ -118,8 +146,17 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
                 </p>
               ))}
             </div>
+          </div>
         </div>
-        </div>
+        {/* leave button*/}
+        <a
+          className='mt-6 button text-white shadow-solid text-base lg:text-lg cursor-pointer pointer-events-auto'
+          onClick={leavePartyButton}
+        >
+          <h2 className="h-full bg-clay-700 text-center">
+            <span>Leave</span>
+          </h2>
+        </a>
       </div>
       {/* The multiplayer instructions */}
       <div className="multiplayer-help hidden lg:block font-body text-xs sm:text-sm md:text-md">
@@ -156,10 +193,12 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
           <br/>
           <p>
             The game ends when either:
+          </p>
             <ul className="list-disc list-inside">
               <li>You obtain the ZetaMaster code (human victory).</li>
               <li>You are reported as a human (AI victory).</li>
             </ul>
+          <p>
             AIs wrongly reported as humans will be destroyed.
           </p>
         </div>

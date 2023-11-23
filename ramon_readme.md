@@ -1,8 +1,26 @@
 ## This is Ramon's log
 
+- [2023-11-22 21:29:07] more bugs
+  - the user character dissapeared in a single game, I don't know why though, maybe its a hearbeat problem where by being on the plane the heart beats don't register correctly? [TODO]
+- [2023-11-21 10:35:33] general improvements
+  - setting the number of secret codes to one per human [done]
+  - setting max number of users to 4 [done]
+  - create 20 character descriptions [done]
+  - create 20 character sprites [done]
+    - almost there, just need to make sure it works
+  - remove activities [TODO]
+  - fix the leakage bug [TODO]
+  - the map is weird when the game starts, I think its because the height does not update immidiately [TODO]
+- [2023-11-21 09:38:35] when starting a game the loading is super janky
+  - it is slow and it renders in parts, I need to make it smoother[TODO]
+  - the map defaults to some top left spot, I need to center it on your character [TODO]
+- [2023-11-21 09:37:04] I've resumed where i left yesterday
 - [2023-11-20 18:36:06] time to revamp the lobby
   - there is a weird glitch that some of the elements have weird white stuff on the right but only on my other browser[TODO]
-  - I need to decide what I am going to fill the right side with, maybe a pic explaining the game?
+  - I need to decide what I am going to fill the right side with, maybe a pic explaining the game? [done]
+  - I decided to write the instructions, I just need to update them [TODO]
+  - when I create "new party" it throws user is already in part error, I need to fix that [done]
+    - actually the issue is on the url, I should remove the search when clicking on other buttons
 - [2023-11-20 12:57:03] it seems we have further leakage :(
     - its also because of non-unique player ids :( [TODO]
     - so I need to pass world id, but memories are already not worldId related; sort of needing to do unique ids [TODO]

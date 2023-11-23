@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { Doc, Id } from './_generated/dataModel';
 import { DatabaseReader, QueryCtx, MutationCtx, mutation, internalMutation, query } from './_generated/server';
-import {AGENTS_PER_PLAYER} from './constants';
+import {AGENTS_PER_PLAYER, CODES_PER_PLAYER, MAX_HUMAN_PLAYERS} from './constants';
 import { Descriptions } from '../data/characters';
 import { createWorld, shouldCreateAgents} from './init';
 import { createEngine, stopEngine } from './aiTown/main';
@@ -59,6 +59,7 @@ export const multiplayerInit = mutation({
     // Send inputs to create players for all of the agents.
     const numUsers = users.length;
     const numAgents = args.numAgents ?? (AGENTS_PER_PLAYER * numUsers);
+    const numCodes = CODES_PER_PLAYER * numUsers;
     const numPlayers = numUsers + numAgents;
     const playerIndices = Array.from({ length: numPlayers }, (_, i) => i);
 
@@ -79,9 +80,6 @@ export const multiplayerInit = mutation({
       agentToPlayerMap.set(i, playerIndices[randomPlayerIndex]);
       playerIndices.splice(randomPlayerIndex, 1);
     }
-
-    // Randomly assign the secret code to one agent
-    const secretCodeAgentIndex = Math.floor(Math.random() * numAgents);
 
     const shouldCreate = await shouldCreateAgents(
       ctx.db,
@@ -107,7 +105,7 @@ export const multiplayerInit = mutation({
       // then create the agents
       for (let i = 0; i < numAgents; i++) {
         const playerIndex = agentToPlayerMap.get(i);
-        const hasSecretCode = (i === secretCodeAgentIndex);
+        const hasSecretCode = (i < numCodes);
         await insertInput(ctx, worldStatus.worldId, 'createAgent', {
           descriptionIndex: playerIndex,
           hasSecretCode: hasSecretCode,
@@ -174,6 +172,8 @@ export const joinParty = mutation({
 
     if (party.users.includes(user._id)) {
       throw new Error('User is already in party');
+    } else if (party.users.length >= MAX_HUMAN_PLAYERS) {
+      throw new Error(`Party is full`);
     }
 
     // remove default world if it exists
@@ -301,4 +301,19 @@ export const getUserId = query({
       .first()
     return user?._id;
   },
+});
+
+export const leaveParty = mutation({
+  args: {
+    partyId: v.optional(v.id('parties')),
+  },
+  handler: async (ctx, args) => {
+    // get authed user
+    const {user} = await getUser(ctx);
+    if (!user) {
+      return null;
+    }
+
+    await finishPreviousParties(ctx, user);
+  }
 });

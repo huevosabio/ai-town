@@ -13,7 +13,7 @@ export const TYPING_TIMEOUT = 15 * 1000;
 export const COLLISION_THRESHOLD = 0.75;
 
 // How many human players can be in a world at once.
-export const MAX_HUMAN_PLAYERS = 8;
+export const MAX_HUMAN_PLAYERS = 1;
 
 // Don't talk to anyone for 15s after having a conversation.
 export const CONVERSATION_COOLDOWN = 15000;
@@ -64,7 +64,7 @@ export const AGENT_WAKEUP_THRESHOLD = 1000;
 export const VACUUM_MAX_AGE = 2 * 7 * 24 * 60 * 60 * 1000;
 export const DELETE_BATCH_SIZE = 64;
 
-export const HUMAN_IDLE_TOO_LONG = 50 * 60 * 1000;
+export const HUMAN_IDLE_TOO_LONG = 5 * 60 * 1000;
 
 export const ACTIVITIES = [
   { description: 'reading a book', emoji: '📖', duration: 60_000 },
@@ -79,3 +79,6 @@ export const MEMORY_LOOKBACK = 10;
 export const DEFAULT_NUM_AGENTS = 4;
 
 export const AGENTS_PER_PLAYER = 3;
+
+export const CODES_PER_PLAYER = 1;
+
