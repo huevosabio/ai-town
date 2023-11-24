@@ -21,9 +21,6 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
     if (isAuthenticated) {
       const parseParams = async () => {
         const params = new URLSearchParams(window.location.search);
-        console.log(params);
-        console.log(window.location);
-        console.log(params);
         const partyId = params.get('partyId');
         if (partyId){
           setPartyId(partyId);
@@ -39,12 +36,11 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
 
   useEffect(() => {
     if (partyId && isAuthenticated) {
-      console.log('Joining party ' + partyId);
       joinPartyWithToast(partyId);
       // delete search params if exist
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      console.log('No party id');
+      // nothing
     }
   }, [partyId, isAuthenticated]);
 
@@ -62,7 +58,7 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
   const sharePartyLink = () => {
     const url = window.location.origin + '/?partyId=' + partyData.id;
     navigator.clipboard.writeText(url);
-    console.log(url);
+    // TODO: add toaster here
     //alert('Party link copied to clipboard!');
   }
 

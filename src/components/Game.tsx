@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef} from 'react';
 import PixiGame from './PixiGame.tsx';
 
-import { useElementSize } from 'usehooks-ts';
+import { useElementSize } from '../hooks/useElementSize.ts';//'usehooks-ts';
 import { Stage } from '@pixi/react';
 import { ConvexProvider, useConvex, useQuery } from 'convex/react';
 import PlayerDetails from './PlayerDetails.tsx';
@@ -22,6 +22,7 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
     id: GameId<'players'>;
   }>();
   const [gameWrapperRef, { width, height }] = useElementSize();
+
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);
   const worldId = worldStatus?.worldId;

@@ -11,6 +11,7 @@
   - remove activities [TODO]
   - fix the leakage bug [TODO]
   - the map is weird when the game starts, I think its because the height does not update immidiately [TODO]
+    - I think I know what the issue is, for whatever reason the initial height/width is wrong and then it takes an actual resizing for this to propagate. 
 - [2023-11-21 09:38:35] when starting a game the loading is super janky
   - it is slow and it renders in parts, I need to make it smoother[TODO]
   - the map defaults to some top left spot, I need to center it on your character [TODO]
