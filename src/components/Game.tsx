@@ -22,6 +22,10 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
     id: GameId<'players'>;
   }>();
   const [gameWrapperRef, { width, height }] = useElementSize();
+  console.log(`Initial width: ${width}, Initial height: ${height}`);
+  useEffect(() => {
+    console.log('later sizes', width, height);
+  }, [width, height]);
 
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);
@@ -78,7 +82,7 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
         <div className={`
           flex flex-col shrink-0 px-4
           py-6 sm:px-6 lg:w-96 xl:pr-6 border-t-8
-          sm:border-t-0 sm:border-l-8 border-brown-900 
+          lg:border-t-0 lg:border-l-8 border-brown-900 
           bg-brown-800 text-brown-100
           h-full
           overflow-y-scroll

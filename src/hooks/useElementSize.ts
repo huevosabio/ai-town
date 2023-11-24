@@ -1,4 +1,4 @@
-import { RefObject, useState, useRef} from 'react'
+import { useCallback, useState, useRef, RefObject } from 'react'
 
 import { useEventListener, useIsomorphicLayoutEffect } from 'usehooks-ts'
 
@@ -7,35 +7,39 @@ interface Size {
   height: number
 }
 
-export function useElementSize<T extends HTMLElement = HTMLDivElement>(): [RefObject<T>, Size,] {
-  const ref = useRef<T>(null)
+export const useElementSize = <T extends HTMLElement = HTMLDivElement>(): [
+  (node: T | null) => void,
+  Size
+] => {
+  const [ref, setRef] = useState<T | null>(null)
   const [size, setSize] = useState<Size>({
     width: 0,
     height: 0,
-  })
+  });
 
   useIsomorphicLayoutEffect(() => {
-    setSize({
-      width: ref.current?.offsetWidth || 0,
-      height: ref.current?.offsetHeight || 0,
-    })
+    const updateSize = (element: Element | null) => {
+      const { width, height } = element?.getBoundingClientRect() ?? {
+        width: 0,
+        height: 0,
+      };
+      setSize({ width, height });
+    };
+
+    updateSize(ref);
 
     const resizeObserver = new ResizeObserver((entries) => {
-      const entry = entries[0]
+      const entry = entries[0];
       if (entry) {
-        setSize({
-          width: entry.contentRect.width || 0,
-          height: entry.contentRect.height || 0,
-        })
+        updateSize(entry.target);
       }
-    })
+    });
 
-    ref.current && resizeObserver.observe(ref.current)
+    ref && resizeObserver.observe(ref);
     return () => {
-      ref.current && resizeObserver.unobserve(ref.current)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref.current])
+      ref && resizeObserver.unobserve(ref);
+    };
+  }, [ref]);
 
-  return [ref, size]
+  return [setRef, size];
 };

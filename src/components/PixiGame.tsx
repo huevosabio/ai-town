@@ -31,6 +31,7 @@ export const PixiGame = (props: {
   const humanPlayerId = [...props.game.world.players.values()].find(
     (p) => p.human === humanTokenIdentifier,
   )?.id;
+  console.log(props.width, props.height);
 
   const moveTo = useSendInput(props.engineId, 'moveTo');
 
