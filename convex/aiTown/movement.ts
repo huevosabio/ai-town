@@ -51,6 +51,7 @@ export function movePlayer(
       kind: 'needsPath',
     },
   };
+  player.lastInput = now;
   return;
 }
 

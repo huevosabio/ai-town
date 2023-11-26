@@ -295,6 +295,8 @@ export const conversationInputs = {
       const player = game.world.players.get(playerId);
       if (!player) {
         throw new Error(`Invalid player ID: ${playerId}`);
+      } else {
+        player.lastInput = now;
       }
       const conversationId = parseGameId('conversations', args.conversationId);
       const conversation = game.world.conversations.get(conversationId);
@@ -319,6 +321,7 @@ export const conversationInputs = {
     },
     handler: (game: Game, now: number, args): null => {
       const playerId = parseGameId('players', args.playerId);
+      const player = game.world.players.get(playerId);
       const conversationId = parseGameId('conversations', args.conversationId);
       const conversation = game.world.conversations.get(conversationId);
       if (!conversation) {
@@ -329,6 +332,10 @@ export const conversationInputs = {
       }
       conversation.lastMessage = { author: playerId, timestamp: args.timestamp };
       conversation.numMessages++;
+      // and update the last input
+      if (player) {
+        player.lastInput = now;
+      }
       return null;
     },
   }),

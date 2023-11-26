@@ -41,6 +41,7 @@ export async function rememberConversation(
   const {agentDescription} = await ctx.runQuery(selfInternal.loadAgentDescription, { worldId, agentId });
   const messages = await ctx.runQuery(selfInternal.loadMessages, { worldId, conversationId });
   const events = await ctx.runQuery(selfInternal.loadEventsFromConversation, {
+    worldId,
     playerId,
     conversationId,
   });
@@ -100,6 +101,7 @@ export async function rememberConversation(
   authors.delete(player.id as GameId<'players'>);
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
+    worldId,
     playerId: player.id,
     description,
     importance,
@@ -195,11 +197,13 @@ export async function reflectOnRecentConversations(
   memoryLookback: number,
 ) {
   const memories = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    worldId,
     playerId,
     n: memoryLookback,
     type: 'conversation',
   });
   const events = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    worldId,
     playerId,
     n: memoryLookback,
     type: 'event',
@@ -247,6 +251,7 @@ export async function reflectOnRecentConversations(
   const description = `Reflection on recent conversations and events at  ${new Date(now).toLocaleString()}: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
+    worldId,
     playerId,
     description,
     importance,
@@ -268,6 +273,7 @@ export async function createAndUpdatePlan(
   reflection: string,
 ) {
   const reflections = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    worldId,
     playerId,
     n: 1,
     type: 'reflection',
@@ -309,6 +315,7 @@ export async function createAndUpdatePlan(
   const description = `New plan at  ${new Date(now).toLocaleString()} based on recent conversations: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
+    worldId,
     playerId,
     description,
     importance,
@@ -365,7 +372,8 @@ export async function rememberEvent(
   const { embedding } = await fetchEmbedding(description);
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId: agentId,
-    playerId: playerId,
+    worldId: worldId,
+    playerId,
     description,
     importance,
     lastAccess: Date.now(),
@@ -424,6 +432,7 @@ export const loadAgentDescription = internalQuery({
 
 export const recallRecentMemories = internalQuery({
   args: {
+    worldId: v.id('worlds'),
     playerId,
     n: v.number(),
     type: v.optional(v.string()),
@@ -431,7 +440,7 @@ export const recallRecentMemories = internalQuery({
   handler: async (ctx, args) => {
     const memories = await ctx.db
       .query('memories')
-      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
+      .withIndex('worldId_playerId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
       .filter((q) => q.eq(q.field('data.type'), args.type))
       .order('desc')
       .take(args.n);
@@ -586,7 +595,7 @@ export const insertReflectionMemories = internalMutation({
       }),
     ),
   },
-  handler: async (ctx, { playerId, reflections }) => {
+  handler: async (ctx, { worldId, playerId, reflections }) => {
     const lastAccess = Date.now();
     for (const { embedding, relatedMemoryIds, ...rest } of reflections) {
       const embeddingId = await ctx.db.insert('memoryEmbeddings', {
@@ -594,6 +603,7 @@ export const insertReflectionMemories = internalMutation({
         embedding: embedding,
       });
       await ctx.db.insert('memories', {
+        worldId,
         playerId,
         embeddingId,
         lastAccess,
@@ -704,14 +714,16 @@ export const getReflectionMemories = internalQuery({
     }
     const memories = await ctx.db
       .query('memories')
-      .withIndex('playerId', (q) => q.eq('playerId', player.id))
+      .withIndex('worldId_playerId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
       .order('desc')
       .take(args.numberOfItems);
 
     const lastReflection = await ctx.db
       .query('memories')
-      .withIndex('playerId_type', (q) =>
-        q.eq('playerId', args.playerId).eq('data.type', 'reflection'),
+      .withIndex('worldId_playerId_type',
+        (q) => q.eq('worldId', args.worldId)
+          .eq('playerId', args.playerId)
+          .eq('data.type', 'reflection')
       )
       .order('desc')
       .first();
@@ -726,12 +738,17 @@ export const getReflectionMemories = internalQuery({
 
 export async function latestMemoryOfType<T extends MemoryType>(
   db: DatabaseReader,
+  worldId: Id<'worlds'>,
   playerId: GameId<'players'>,
   type: T,
 ) {
   const entry = await db
     .query('memories')
-    .withIndex('playerId_type', (q) => q.eq('playerId', playerId).eq('data.type', type))
+    .withIndex('worldId_playerId_type',
+        (q) => q.eq('worldId', worldId)
+          .eq('playerId', playerId)
+          .eq('data.type', type)
+      )
     .order('desc')
     .first();
   if (!entry) return null;
@@ -740,13 +757,18 @@ export async function latestMemoryOfType<T extends MemoryType>(
 // queries events associated with a conversation
 export const loadEventsFromConversation = internalQuery({
   args: {
+    worldId: v.id('worlds'),
     playerId,
     conversationId,
   },
   handler: async (ctx, args) => {
     const events = await ctx.db
       .query('memories')
-      .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'event'))
+      .withIndex('worldId_playerId_type',
+        (q) => q.eq('worldId', args.worldId)
+          .eq('playerId', args.playerId)
+          .eq('data.type', 'event')
+      )
       .filter((q) => q.eq(q.field('data.conversationId'), args.conversationId))
       .collect();
     return events;
@@ -755,12 +777,17 @@ export const loadEventsFromConversation = internalQuery({
 
 export const loadEvents = internalQuery({
   args: {
+    worldId: v.id('worlds'),
     playerId: v.id('players'),
   },
   handler: async (ctx, args) => {
     const events = await ctx.db
       .query('memories')
-      .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'event'))
+      .withIndex('worldId_playerId_type',
+        (q) => q.eq('worldId', args.worldId)
+          .eq('playerId', args.playerId)
+          .eq('data.type', 'event')
+      )
       .collect();
     return events;
   }

@@ -201,7 +201,8 @@ export const agentDoSomething = internalAction({
     const recentActivity = player.activity && now < player.activity.until + ACTIVITY_COOLDOWN;
     // Decide whether to do an activity or wander somewhere.
     if (!player.pathfinding) {
-      if (recentActivity || justLeftConversation) {
+      if (true || recentActivity || justLeftConversation) {
+        // TODO: note this is always activated! remove the true later on
         await sleep(Math.random() * 1000);
         await ctx.runMutation(api.aiTown.main.sendInput, {
           worldId: args.worldId,

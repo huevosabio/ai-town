@@ -1,6 +1,6 @@
 import { useApp } from '@pixi/react';
 import { Player, SelectElement } from './Player.tsx';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
 import { Viewport } from 'pixi-viewport';
@@ -31,7 +31,6 @@ export const PixiGame = (props: {
   const humanPlayerId = [...props.game.world.players.values()].find(
     (p) => p.human === humanTokenIdentifier,
   )?.id;
-  console.log(props.width, props.height);
 
   const moveTo = useSendInput(props.engineId, 'moveTo');
 
@@ -79,6 +78,24 @@ export const PixiGame = (props: {
     console.log(`Moving to ${JSON.stringify(roundedTiles)}`);
     await toastOnError(moveTo({ playerId: humanPlayerId, destination: roundedTiles }));
   };
+  // elete
+  if (humanPlayerId) {
+    const tileDim = props.game.worldMap.tileDim;
+    const humanPlayer = props.game.world.players.get(humanPlayerId);
+    const humanPlayerPositionPx = {
+      x: (humanPlayer?.position.x ?? 0) * tileDim,
+      y: (humanPlayer?.position.y ?? 0) * tileDim,
+    };
+    useEffect(() => {
+      const viewport = viewportRef.current;
+      if (viewport && humanPlayerPositionPx.x && humanPlayerPositionPx.y) {
+        // Center the viewport on the human player
+        viewport.moveCenter(humanPlayerPositionPx.x, humanPlayerPositionPx.y);
+      }
+    }, []);
+  }
+
+  //
   const { width, height, tileDim } = props.game.worldMap;
   const players = [...props.game.world.players.values()];
   return (

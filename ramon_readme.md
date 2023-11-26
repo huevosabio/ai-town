@@ -1,30 +1,47 @@
 ## This is Ramon's log
 
+
+- [2023-11-24 15:33:24] AI characters start with a bubble, I want to remove that [done]
+- [2023-11-24 13:56:17] the bug of dissapearing player is real, unsure how to replicate
+  - I know what the issue is, since the big merge, lastInput is no longer used so humans dissapear at a fixed point after instantiation!
+  - this is an issue on the main ai town as well actually, I need to update last input on inputs like moving, and on type/message
+  - that was it!
+- [2023-11-24 11:02:30] Ok, now I am going to remove activities, they are just wasting time and mislead the players to stuff that isn't
+  - i am thinking, instead of activities, this could be the place for choosing to go towards someone
+  - e.g. use this spot to choose to go talk to someone, or walk towards someone
+  - for now I am just going to avoid activities all together.
+- [2023-11-24 08:04:33] more observations
+  - the game starts with all agents in dumb thought, making it slow, need to make them act immidiately [done]
+  - the characters get out of character every now and then, I had not seen this before, I wonder if its a gpt4 turbo thing [TODO]
+- [2023-11-24 07:56:09] yesterday was spent mostly solving the map issue; I am back now with 
 - [2023-11-22 21:29:07] more bugs
-  - the user character dissapeared in a single game, I don't know why though, maybe its a hearbeat problem where by being on the plane the heart beats don't register correctly? [TODO]
+  - the user character dissapeared in a single game, I don't know why though, maybe its a hearbeat problem where by being on the plane the heart beats don't register correctly? [done]
 - [2023-11-21 10:35:33] general improvements
   - setting the number of secret codes to one per human [done]
   - setting max number of users to 4 [done]
   - create 20 character descriptions [done]
   - create 20 character sprites [done]
     - almost there, just need to make sure it works
-  - remove activities [TODO]
-  - fix the leakage bug [TODO]
-  - the map is weird when the game starts, I think its because the height does not update immidiately [TODO]
+  - remove activities [done]
+  - fix the leakage bug [done]
+  - the map is weird when the game starts, I think its because the height does not update immidiately []
     - I think I know what the issue is, for whatever reason the initial height/width is wrong and then it takes an actual resizing for this to propagate. 
+    - the solution was to use ResizeObserver + keep the ref/setRef instead of using useRef; modified the custom useElementSize found here: https://github.com/juliencrn/usehooks-ts/issues/236#issuecomment-1291001854
 - [2023-11-21 09:38:35] when starting a game the loading is super janky
-  - it is slow and it renders in parts, I need to make it smoother[TODO]
-  - the map defaults to some top left spot, I need to center it on your character [TODO]
+  - it is slow and it renders in parts, I need to make it smoother[done]
+    - I think it got better, by just solving the other stuff
+  - the map defaults to some top left spot, I need to center it on your character [done]
 - [2023-11-21 09:37:04] I've resumed where i left yesterday
 - [2023-11-20 18:36:06] time to revamp the lobby
-  - there is a weird glitch that some of the elements have weird white stuff on the right but only on my other browser[TODO]
+  - there is a weird glitch that some of the elements have weird white stuff on the right but only on my other browser[done]
+    - could not replicate, leaving behind
   - I need to decide what I am going to fill the right side with, maybe a pic explaining the game? [done]
   - I decided to write the instructions, I just need to update them [TODO]
   - when I create "new party" it throws user is already in part error, I need to fix that [done]
     - actually the issue is on the url, I should remove the search when clicking on other buttons
 - [2023-11-20 12:57:03] it seems we have further leakage :(
-    - its also because of non-unique player ids :( [TODO]
-    - so I need to pass world id, but memories are already not worldId related; sort of needing to do unique ids [TODO]
+    - its also because of non-unique player ids :( [done]
+    - so I need to pass world id, but memories are already not worldId related; sort of needing to do unique ids [done]
 - [2023-11-20 08:50:55] prettification tasks:
   - top "navbar" needs to always be clear not overlap with the game [done]
   - game frame border has to be much smaller [done]

@@ -22,10 +22,6 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
     id: GameId<'players'>;
   }>();
   const [gameWrapperRef, { width, height }] = useElementSize();
-  console.log(`Initial width: ${width}, Initial height: ${height}`);
-  useEffect(() => {
-    console.log('later sizes', width, height);
-  }, [width, height]);
 
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);

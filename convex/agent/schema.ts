@@ -4,6 +4,7 @@ import { playerId, conversationId } from '../aiTown/ids';
 import { defineTable } from 'convex/server';
 
 export const memoryFields = {
+  worldId: v.id('worlds'),
   playerId,
   description: v.string(),
   embeddingId: v.id('memoryEmbeddings'),
@@ -43,7 +44,9 @@ export const memoryTables = {
   memories: defineTable(memoryFields)
     .index('embeddingId', ['embeddingId'])
     .index('playerId_type', ['playerId', 'data.type'])
-    .index('playerId', ['playerId']),
+    .index('playerId', ['playerId'])
+    .index('worldId_playerId', ['worldId', 'playerId'])
+    .index('worldId_playerId_type', ['worldId', 'playerId', 'data.type']),
   memoryEmbeddings: defineTable({
     playerId,
     embedding: v.array(v.float64()),

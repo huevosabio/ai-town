@@ -10,6 +10,7 @@ import { useHistoricalValue } from '../hooks/useHistoricalValue.ts';
 import { PlayerDescription } from '../../convex/aiTown/playerDescription.ts';
 import { WorldMap } from '../../convex/aiTown/worldMap.ts';
 import { ServerGame } from '../hooks/serverGame.ts';
+import {THINKING_BUBBLE_ENABLED} from '../../convex/constants.ts';
 
 export type SelectElement = (element?: { kind: 'player'; id: GameId<'players'> }) => void;
 
@@ -57,11 +58,15 @@ export const Player = ({
   const isSpeaking = !![...game.world.conversations.values()].find(
     (c) => c.isTyping?.playerId === player.id,
   );
-  const isThinking =
-    !isSpeaking &&
-    !![...game.world.agents.values()].find(
-      (a) => a.playerId === player.id && !!a.inProgressOperation,
-    );
+  // I am removing the isThinking flag since it gives away AI characters
+  let isThinking = false;
+  if (THINKING_BUBBLE_ENABLED) {
+    isThinking =
+      !isSpeaking &&
+      !![...game.world.agents.values()].find(
+        (a) => a.playerId === player.id && !!a.inProgressOperation,
+      );
+  }
   const tileDim = game.worldMap.tileDim;
   const historicalFacing = { dx: historicalLocation.dx, dy: historicalLocation.dy };
   return (
