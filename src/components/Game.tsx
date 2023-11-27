@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef} from 'react';
 import PixiGame from './PixiGame.tsx';
-
+import { Id } from '../../convex/_generated/dataModel';
 import { useElementSize } from '../hooks/useElementSize.ts';//'usehooks-ts';
 import { Stage } from '@pixi/react';
 import { ConvexProvider, useConvex, useQuery, useMutation} from 'convex/react';
@@ -23,6 +23,7 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
     id: GameId<'players'>;
   }>();
   const [gameWrapperRef, { width, height }] = useElementSize();
+  const markNotificationsAsRead = useMutation(api.zaraInit.markNotificationsAsRead);
 
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);
@@ -30,6 +31,20 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
   const engineId = worldStatus?.engineId;
 
   const game = useServerGame(worldId);
+  const notifications = useQuery(api.zaraInit.getNotifications, {worldId: worldId});
+
+  useEffect(() => {
+    if (notifications){
+      for (const notification of notifications) {
+        // toast
+        notificationToast(notification.message);
+      }
+      // clear notifications
+      markNotificationsAsRead({
+        notificationIds: notifications.map((n) => n._id),
+      });
+    }
+  }, [notifications]);
 
   // Send a periodic heartbeat to our world to keep it alive.
   useWorldHeartbeat();
@@ -43,19 +58,7 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
   } else {
     setActiveGame(true);
   }
-  const notifications = useQuery(api.zaraInit.getNotifications, {});
-  const markNotificationsAsRead = useMutation(api.zaraInit.markNotificationsAsRead);
 
-  if (notifications) {
-    for (const notification of notifications) {
-      // toast
-      notificationToast(notification.message);
-    }
-    // clear notifications
-    markNotificationsAsRead({
-      notificationIds: notifications.map((n) => n._id),
-    });
-  }
   return (
     <>
       {SHOW_DEBUG_UI && <DebugTimeManager timeManager={timeManager} width={200} height={100} />}
