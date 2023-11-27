@@ -317,3 +317,51 @@ export const leaveParty = mutation({
     await finishPreviousParties(ctx, user);
   }
 });
+
+export const getNotifications = query({
+  args: {
+    worldId: v.optional(v.id('worlds')),
+  },
+  handler: async (ctx, args) => {
+    // get authed user
+    const {user} = await getUser(ctx);
+    if (!user) {
+      return [];
+    }
+    const now = Date.now();
+
+    let worldId: Id<'worlds'> | undefined;
+    if (args.worldId) {
+      worldId = args.worldId;
+    } else {
+      worldId = undefined;
+    }
+
+    const notifications = await ctx.db
+      .query('notifications')
+      .withIndex('userId', (q) => q.eq('userId', user._id))
+      .filter((q) => q.eq(q.field('isRead'), false))
+      .filter((q) => q.gt(q.field('expires'), now))
+      .filter((q) => q.eq(q.field('worldId'), worldId))
+      .collect();
+
+    return notifications;
+  }
+});
+
+export const markNotificationsAsRead = mutation({
+  args: {
+    notificationIds: v.array(v.id('notifications')),
+  },
+  handler: async (ctx, args) => {
+    // get authed user
+    const {user} = await getUser(ctx);
+    if (!user) {
+      return null;
+    }
+
+    for (const notificationId of args.notificationIds) {
+      await ctx.db.patch(notificationId, { isRead: true });
+    }
+  }
+});

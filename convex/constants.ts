@@ -83,3 +83,5 @@ export const AGENTS_PER_PLAYER = 3;
 export const CODES_PER_PLAYER = 1;
 
 export const THINKING_BUBBLE_ENABLED = false;
+
+export const NOTIFICATION_EXPIRY = 60 * 1000;

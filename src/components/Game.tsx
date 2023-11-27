@@ -3,7 +3,7 @@ import PixiGame from './PixiGame.tsx';
 
 import { useElementSize } from '../hooks/useElementSize.ts';//'usehooks-ts';
 import { Stage } from '@pixi/react';
-import { ConvexProvider, useConvex, useQuery } from 'convex/react';
+import { ConvexProvider, useConvex, useQuery, useMutation} from 'convex/react';
 import PlayerDetails from './PlayerDetails.tsx';
 import { api } from '../../convex/_generated/api';
 import { useWorldHeartbeat } from '../hooks/useWorldHeartbeat.ts';
@@ -12,6 +12,7 @@ import { DebugTimeManager } from './DebugTimeManager.tsx';
 import VictoryBanner from './VictoryBanner.tsx';
 import { GameId } from '../../convex/aiTown/ids.ts';
 import { useServerGame } from '../hooks/serverGame.ts';
+import { notificationToast } from '../toasts.ts';
 
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
@@ -41,6 +42,19 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
     return null;
   } else {
     setActiveGame(true);
+  }
+  const notifications = useQuery(api.zaraInit.getNotifications, {});
+  const markNotificationsAsRead = useMutation(api.zaraInit.markNotificationsAsRead);
+
+  if (notifications) {
+    for (const notification of notifications) {
+      // toast
+      notificationToast(notification.message);
+    }
+    // clear notifications
+    markNotificationsAsRead({
+      notificationIds: notifications.map((n) => n._id),
+    });
   }
   return (
     <>

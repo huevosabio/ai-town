@@ -7,7 +7,8 @@ import starImg from '../assets/star.svg';
 import helpImg from '../assets/help.svg';
 import burgerImg from '../assets/hamburger.svg';
 import { UserButton } from '@clerk/clerk-react';
-import { Authenticated, Unauthenticated } from 'convex/react';
+import { Authenticated, Unauthenticated, useQuery, useMutation} from 'convex/react';
+import { api } from '../convex/_generated/api';
 import LoginButton from './components/buttons/LoginButton.tsx';
 import React, { useState, useEffect, ComponentType, ReactElement } from 'react';
 import ReactModal from 'react-modal';
@@ -18,6 +19,7 @@ import Lobby from './components/Lobby.tsx';
 import NewMultiplayerGameButton from './components/buttons/NewMultiplayerGame.tsx';
 import MiniTitle from './components/MiniTitle.tsx';
 import MainTitle from './components/MainTitle.tsx';
+import {notificationToast} from './toasts.ts';
 //import InteractButton from './components/buttons/InteractButton.tsx';
 //import FreezeButton from './components/FreezeButton.tsx';
 //import { MAX_HUMAN_PLAYERS } from '../convex/constants.ts';
@@ -44,6 +46,20 @@ export default function Home() {
     }
   }, [activeGame, activeLobby]);
 
+  const notifications = useQuery(api.zaraInit.getNotifications, {});
+  const markNotificationsAsRead = useMutation(api.zaraInit.markNotificationsAsRead);
+
+  if (notifications) {
+    for (const notification of notifications) {
+      // toast
+      notificationToast(notification.message);
+    }
+    // clear notifications
+    markNotificationsAsRead({
+      notificationIds: notifications.map((n) => n._id),
+    });
+  }
+  
 
   
   return (

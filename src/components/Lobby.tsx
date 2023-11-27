@@ -8,6 +8,7 @@ import interactImg from '../../assets/interact.svg';
 import RetroTable from './RetroTable.tsx';
 import { toast } from 'react-toastify';
 import { useConvexAuth } from "convex/react";
+import { notificationToast } from '../toasts';
 
 export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolean) => void}) {
   const startGame = useMutation(api.zaraInit.multiplayerInit);
@@ -58,8 +59,7 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
   const sharePartyLink = () => {
     const url = window.location.origin + '/?partyId=' + partyData.id;
     navigator.clipboard.writeText(url);
-    // TODO: add toaster here
-    //alert('Party link copied to clipboard!');
+    notificationToast('Game link copied to clipboard!');
   }
 
   const leavePartyButton = () => {
