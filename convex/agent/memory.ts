@@ -450,13 +450,14 @@ export const recallRecentMemories = internalQuery({
 
 export async function searchMemories(
   ctx: ActionCtx,
+  worldId: Id<'worlds'>,
   playerId: GameId<'players'>,
   searchEmbedding: number[],
   n: number = 3,
 ) {
   const candidates = await ctx.vectorSearch('memoryEmbeddings', 'embedding', {
     vector: searchEmbedding,
-    filter: (q) => q.eq('playerId', playerId),
+    filter: (q) => q.eq('worldPlayerId', worldId + playerId),
     limit: n * MEMORY_OVERFETCH,
   });
   const rankedMemories = await ctx.runMutation(selfInternal.rankAndTouchMemories, {
@@ -572,6 +573,7 @@ export const insertMemory = internalMutation({
   },
   handler: async (ctx, { agentId, embedding, ...memory }): Promise<void> => {
     const embeddingId = await ctx.db.insert('memoryEmbeddings', {
+      worldPlayerId: memory.worldId + playerId,
       playerId: memory.playerId,
       embedding: embedding,
     });
@@ -599,6 +601,7 @@ export const insertReflectionMemories = internalMutation({
     const lastAccess = Date.now();
     for (const { embedding, relatedMemoryIds, ...rest } of reflections) {
       const embeddingId = await ctx.db.insert('memoryEmbeddings', {
+        worldPlayerId: worldId + playerId,
         playerId,
         embedding: embedding,
       });

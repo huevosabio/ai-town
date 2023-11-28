@@ -1,12 +1,17 @@
 ## This is Ramon's log
 
+- [2023-11-27 16:37:43] had to solve by creating a `worldPlayerId` field that just concatenates the two since convex doesn't allow for `and` filters.
+- [2023-11-27 16:07:32] found more leakage. the `searchMemories` function searches over players, which would surface then memories from other worlds. 
+  - add world id to memory embeddings [done]
+  - make sure to use world id whenever searching embeddings [done]
+- [2023-11-27 15:49:49] I think I finished the notification system _and_ added the notifications for when someone is reported. I will try testing more!
 - [2023-11-26 10:27:21] I added the toaster for copy link, I am going to also add the toaster for when someone gets thrown out, so, I am going to need an "event" system that announces when something happens
   - I need to trigger whenever someone gets "erradicated" whether by reporting, idleness or whatever reason.
   - I am creating a pub-sub notification system
     - notification table with userId, message, isRead, expiryDate, and worldId columns [done]
     - we query notifications and after sending we update the table to mark as read  [done]
-    - notifications with a worldId get emmitted only if the game is active
-    - notifications without a worldID are emmitted only if there is no active game
+    - notifications with a worldId get emmitted only if the game is active [done]
+    - notifications without a worldID are emmitted only if there is no active game [done]
 - [2023-11-24 15:33:24] AI characters start with a bubble, I want to remove that [done]
 - [2023-11-24 13:56:17] the bug of dissapearing player is real, unsure how to replicate
   - I know what the issue is, since the big merge, lastInput is no longer used so humans dissapear at a fixed point after instantiation!

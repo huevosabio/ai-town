@@ -48,11 +48,12 @@ export const memoryTables = {
     .index('worldId_playerId', ['worldId', 'playerId'])
     .index('worldId_playerId_type', ['worldId', 'playerId', 'data.type']),
   memoryEmbeddings: defineTable({
+    worldPlayerId: v.string(), // hacky way to filter for both
     playerId,
     embedding: v.array(v.float64()),
   }).vectorIndex('embedding', {
     vectorField: 'embedding',
-    filterFields: ['playerId'],
+    filterFields: ['worldPlayerId', 'playerId'],
     dimensions: 1536,
   }),
 };
