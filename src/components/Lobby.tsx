@@ -94,6 +94,7 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
           bg-brown-800 text-brown-100
           h-full
           overflow-y-scroll
+          pretty-scroll
           `}>
                   <div className="flex gap-4">
         <div className="box w-full mr-auto">
@@ -134,7 +135,7 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
           <h2 className="bg-brown-700 text-sm lg:text-base text-center">
             Players
           </h2>
-          <div className="chats text-base text-lg overflow-y-scroll flex-initial">
+          <div className="chats text-base text-lg overflow-y-scroll flex-initial pretty-scroll">
             <div className="bg-brown-200 text-black p-2">
               {partyData.users.map((user, index) => (
                 <p key={index}>

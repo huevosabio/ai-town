@@ -1,5 +1,27 @@
 ## This is Ramon's log
 
+- [2023-12-04 14:51:20] we check on each game tick whether there are enough humans to play, and we also pick up straggling players and it works, now moving to other stuff
+- [2023-12-04 10:51:31] on game ending conditions [done]
+  - I want to do a check on each tick, basically just check that there are enough humans for the game to continue in each tick; if not, then the game is labeled as game won [done]
+- [2023-12-02 10:10:24] I am going to shelf the pathfinding improvements for now since I think the backoff worked to a certain extent and I don't want to make any major changes at the moment.
+- [2023-12-02 09:47:59] found a small bug and fixed on message-less conversatiosn (i.e. rejected conversations)
+- [2023-11-30 12:54:26] notes on pathfinding
+  - you should walk towards the other when inviting 
+- [2023-11-30 12:02:07] Back after hiatus, looking again into pathfinding
+  - I want to see why is it not updated immidiately, it seems like the path is not being computed immidiately after accept
+- [2023-11-28 12:18:29] Looking at pathfinding now, I need to make it, much, much better.
+  - lowering the collission backoff makes a big improvement already
+  - but a big other issue is that on accept the pathfinding is not autmatically updated, I think whenever a player accepts or invites, it should walk there
+    - in principle this is handled by updating the status, but it is not being updated fast enough
+- [2023-11-28 10:29:54] recorded a quick overall multiplayer playthrough to catch issues, found several:
+	- rendering is still too janky and slow [TODO]
+    - I think the issue is the order of the components, frankly I should move playing/lobby to its own endpoints rather than overloading everything on a single app
+	- white rendering issue, I think it has to do with size of window? [done]
+    - I think this is a scroll issue
+	- the movement is broken: they end up wandering all over, and they end up not being able to talk for a while, it should be much faster for them to approach and talk [TODO]
+    - this will require a much closer look
+	- character was moving even as the conversation started [TODO]
+- [2023-11-28 06:19:56] something broke the pathfinding algo
 - [2023-11-27 16:37:43] had to solve by creating a `worldPlayerId` field that just concatenates the two since convex doesn't allow for `and` filters.
 - [2023-11-27 16:07:32] found more leakage. the `searchMemories` function searches over players, which would surface then memories from other worlds. 
   - add world id to memory embeddings [done]

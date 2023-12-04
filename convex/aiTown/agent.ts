@@ -136,7 +136,7 @@ export class Agent {
     }
     const conversation = game.world.playerConversation(player);
     const member = conversation?.participants.get(player.id);
-
+    
     const recentlyAttemptedInvite =
       this.lastInviteAttempt && now < this.lastInviteAttempt + CONVERSATION_COOLDOWN;
     const doingActivity = player.activity && player.activity.until > now;

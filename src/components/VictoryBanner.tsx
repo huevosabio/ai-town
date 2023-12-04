@@ -28,6 +28,10 @@ const VictoryBanner: React.FC<VictoryBannerProps> = ({ gameStatus }) => {
         gameOverBanner = 'You lost!';
         subtext = 'You were caught!';
         break;
+      case 'lost-left': 
+        gameOverBanner = 'You lost!';
+        subtext = 'You left the game due to idleness';
+        break;
       case 'lost-other-won': 
         gameOverBanner = 'You lost!';
         subtext = 'The other player got the code!';

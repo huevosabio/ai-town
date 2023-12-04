@@ -20,13 +20,13 @@ export const STATUS_STOPPED_BY_HUMAN_VICTORY = 'stoppedByHumanVictory';
 export const STATUS_STOPPED_BY_USER = 'stoppedByUser';
 export const STATUS_PLAYING = 'playing';
 export const STATUS_LOST_OTHER_WON = 'lost-other-won';
-export const STATUS_LOST_IDLE = 'lost-idle';
+export const STATUS_LOST_LEFT = 'lost-left';
 export const STATUS_WON_CODE = 'won-code';
 
 export type StatusType = "playing" |
   "lost-reported" |
   "lost-other-won" |
-  "lost-idle" |
+  "lost-left" |
   "won-code" |
   "won-last-human";
 
@@ -57,7 +57,7 @@ export const aiTownTables = {
         v.literal(STATUS_PLAYING),
         v.literal(STATUS_LOST_REPORTED),
         v.literal(STATUS_LOST_OTHER_WON),
-        v.literal(STATUS_LOST_IDLE),
+        v.literal(STATUS_LOST_LEFT),
         v.literal(STATUS_WON_CODE),
         v.literal(STATUS_WON_LAST_HUMAN),
       ),

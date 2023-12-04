@@ -23,7 +23,6 @@ export const defaultWorldStatus = query({
     if (!user.defaultWorldStatusId) {
       return null; 
     }
-    console.log(user.defaultWorldStatusId);
     const worldStatus = await ctx.db.get(user.defaultWorldStatusId);
     return worldStatus;
   },

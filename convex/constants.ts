@@ -3,7 +3,7 @@ export const WORLD_HEARTBEAT_INTERVAL = 60 * 1000;
 
 export const MAX_STEP = 10 * 60 * 1000;
 export const TICK = 16;
-export const STEP_INTERVAL = 1000;
+export const STEP_INTERVAL = 10;
 
 export const PATHFINDING_TIMEOUT = 60 * 1000;
 export const PATHFINDING_BACKOFF = 1000;
@@ -64,7 +64,7 @@ export const AGENT_WAKEUP_THRESHOLD = 1000;
 export const VACUUM_MAX_AGE = 2 * 7 * 24 * 60 * 60 * 1000;
 export const DELETE_BATCH_SIZE = 64;
 
-export const HUMAN_IDLE_TOO_LONG = 10 * 60 * 1000;
+export const HUMAN_IDLE_TOO_LONG = 1 * 60 * 1000;
 
 export const ACTIVITIES = [
   { description: 'reading a book', emoji: '📖', duration: 60_000 },

@@ -37,6 +37,7 @@ export async function startConversationMessage(
 
   const memories = await memory.searchMemories(
     ctx,
+    worldId,
     player.id as GameId<'players'>,
     embedding,
     NUM_MEMORIES_TO_SEARCH(),
@@ -109,7 +110,13 @@ export async function continueConversationMessage(
     ctx,
     `What do you think about ${otherPlayer.name}?`,
   );
-  const memories = await memory.searchMemories(ctx, player.id as GameId<'players'>, embedding, 3);
+  const memories = await memory.searchMemories(
+    ctx,
+    worldId,
+    player.id as GameId<'players'>,
+    embedding,
+    3
+  );
   const prompt = [
     `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
   ];

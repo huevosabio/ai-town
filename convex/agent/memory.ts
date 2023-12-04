@@ -99,13 +99,18 @@ export async function rememberConversation(
   const importance = await calculateImportance(description, playerId, worldId);
   const { embedding } = await fetchEmbedding(description);
   authors.delete(player.id as GameId<'players'>);
+  // last access is the latest time of record of messages and events
+  const lastAccess = Math.max(
+    messages[messages.length - 1]?._creationTime ?? 0,
+    events[events.length - 1]?._creationTime ?? 0,
+  );
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
     worldId,
     playerId: player.id,
     description,
     importance,
-    lastAccess: messages[messages.length - 1]._creationTime,
+    lastAccess: lastAccess,
     data: {
       type: 'conversation',
       conversationId,

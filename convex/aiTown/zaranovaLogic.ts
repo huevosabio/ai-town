@@ -18,7 +18,7 @@ import {
   STATUS_STOPPED_BY_USER,
   STATUS_PLAYING,
   STATUS_LOST_OTHER_WON,
-  STATUS_LOST_IDLE,
+  STATUS_LOST_LEFT,
   STATUS_WON_CODE,
   StatusType
 } from './schema'
@@ -101,9 +101,9 @@ export const handleReportedPlayer = internalMutation({
     
       // Handle game-ending conditions
       if (worldStatus.isSoloGame) {
-        await handleSoloGame(ctx, worldStatus._id, args.worldId)
+        await handleSoloEndGame(ctx, worldStatus._id, args.worldId)
       } else if (numHumans === 2) {
-        await handleTwoHumans(ctx, world, worldStatus, args.playerId, user)
+        await handleMultiEndGame(ctx, world.players, worldStatus, args.playerId, user)
       } else {
         // game continues, just boot this player
         console.log(`Booting reported player...`);
@@ -195,7 +195,7 @@ async function fetchUserByToken(
 }
 
 // Function to handle solo game
-async function handleSoloGame(
+async function handleSoloEndGame(
   ctx: MutationCtx,
   worldStatusId: Id<'worldStatus'>,
   worldId: Id<'worlds'>
@@ -206,21 +206,22 @@ async function handleSoloGame(
 }
 
 // Function to handle game with two humans
-async function handleTwoHumans(
+async function handleMultiEndGame(
   ctx: MutationCtx,
-  world: Doc<'worlds'>,
+  players: SerializedPlayer[],
   worldStatus: Doc<'worldStatus'>,
-  playerId: string,
-  user: Doc<'users'>
+  playerId?: string,
+  user?: Doc<'users'>
   ) {
+  // if playerid, user are passed then that user is reported and loses
+  // otherwise, this only gives victory to remaining player
   console.log(`Last man standing wins...`);
-  const otherPlayer = world.players.find((p) => p.human && p.id !== playerId);
+  const otherPlayer = players.find((p) => p.human && p.id !== playerId);
+  let otherUser: Doc<'users'> | undefined;
   if (!otherPlayer || !otherPlayer.human) {
-    throw new Error(`Invalid other player ID or token: ${playerId}`);
-  }
-  const otherUser = await fetchUserByToken(ctx, otherPlayer.human);
-  if (!otherUser) {
-    throw new Error(`Invalid other user ID: ${otherPlayer.id}`);
+    console.log('No human players left, stopping engine...');
+  } else {
+    otherUser = await fetchUserByToken(ctx, otherPlayer.human);
   }
   
   // Assigns lost to the current user, won to other remaining user, and keeps the status for the others
@@ -228,10 +229,10 @@ async function handleTwoHumans(
     (u) =>
     u.userId === user?._id
     ? { userId: u.userId, status: STATUS_LOST_REPORTED as StatusType }
-    : {userId: u.userId, status: u.userId === otherUser._id ? STATUS_WON_LAST_HUMAN : u.status},
+    : {userId: u.userId, status: u.userId === otherUser?._id ? STATUS_WON_LAST_HUMAN : u.status},
   );
   await ctx.db.patch(worldStatus._id, { userStatus, status: STATUS_STOPPED_BY_HUMAN_CAUGHT });
-  await stopEngine(ctx, world._id);
+  await stopEngine(ctx, worldStatus.worldId);
 }
 
 async function fetchPlayerById(
@@ -251,4 +252,65 @@ async function fetchPlayerById(
     throw new Error(`Player description for ${playerId} not found`);
   }
   return { name: playerDescription.name, ...player }
+}
+
+
+// check game ending conditions
+export async function checkGameEndingConditions(
+  ctx: MutationCtx,
+  players: SerializedPlayer[],
+  worldId: Id<'worlds'>,
+) {
+  // first fetch world status
+  const worldStatus = (await loadWorldStatus(ctx.db, worldId))!;
+  const numHumans = players.filter((p) => p.human).length;
+  // if game is solo, check if there are no humans, else check if there is only one human
+  let minHumans = worldStatus.isSoloGame ? 0 : 1;
+  if (numHumans <= minHumans) {
+    // game is over
+    if (worldStatus.isSoloGame) {
+      // solo game
+      await handleSoloEndGame(ctx, worldStatus._id, worldId);
+    } else {
+      // multi game
+      await handleMultiEndGame(ctx, players, worldStatus);
+    }
+  }
+}
+
+// marks these players as left / inactive
+export async function markPlayersAsLeft(
+  ctx: MutationCtx,
+  worldId: Id<'worlds'>,
+  removedPlayers: SerializedPlayer[]
+) {
+  // get all players from party
+  const worldStatus = (await loadWorldStatus(ctx.db, worldId))!;
+  const notifyUserIds = worldStatus.userStatus?.map((u) => u.userId) || [];
+  // the players have left, so 
+  let removedUserIds: string[] = [];
+  for (const player of removedPlayers) {
+    if (player.human) {
+      // get user from token
+      const tokenId = player.human;
+      const user = await fetchUserByToken(ctx, tokenId);
+      // check if the player status was playing (hasn't been reported)
+      if (worldStatus.userStatus?.find((u) => u.userId === user._id)?.status === STATUS_PLAYING) {
+        // mark as left
+        removedUserIds.push(user._id);
+        await broadcastNotification(
+          ctx,
+          notifyUserIds,
+          `${user.username} has left the game.`,
+          worldId
+        );
+      }
+    }
+  }
+  // now update the user status
+  const userStatus = worldStatus.userStatus?.map(
+    (u) => removedUserIds.includes(u.userId) ? { userId: u.userId, status: STATUS_LOST_LEFT as StatusType } : u,
+  );
+  // patch world status
+  await ctx.db.patch(worldStatus._id, { userStatus });
 }

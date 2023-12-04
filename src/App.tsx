@@ -192,14 +192,3 @@ const modalStyles = {
     fontFamily: '"Upheaval Pro", "sans-serif"',
   },
 };
-
-function withFallback<P = {}>(
-  Component: ComponentType<any>,
-  Fallback: ComponentType<any>,
-): ComponentType<P> {
-  return function(props: P): ReactElement {
-    const component = <Component {...props} />;
-    console.log(component, React.isValidElement(component))
-    return React.isValidElement(component) ? component : <Fallback />;
-  };
-}

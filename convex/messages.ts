@@ -15,7 +15,6 @@ export const listMessages = query({
       .collect();
     const out = [];
     for (const message of messages) {
-      console.log(message);
       const playerDescription = await ctx.db
         .query('playerDescriptions')
         .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', message.author))

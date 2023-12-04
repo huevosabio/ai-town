@@ -226,3 +226,18 @@ p[contenteditable='true']:empty::before {
   background: rgb(35, 38, 58);
   color: white;
 }
+
+.pretty-scroll {
+  overflow: overlay;
+}
+
+.pretty-scroll::-webkit-scrollbar {
+  background-color: rgba(255, 255, 255, 0);
+  width: 2px;
+  ;
+}
+
+.pretty-scroll::-webkit-scrollbar-thumb {
+  background-color: rgb(0, 0, 0);
+  /* Replace #your-color with the color you want */
+}
