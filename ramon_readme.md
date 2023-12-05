@@ -1,5 +1,17 @@
 ## This is Ramon's log
 
+- [2023-12-05 10:18:15] I am now going to implement eavesdropping dynamic, this has multiple parts
+  - reqs:
+    - when a player is too close to an agent that is in a conversation, the agent notices that the player eaves dropped
+    - when an agent is too close to a player that is in a conversation, the messages that are stated during the conversation get stored as memories
+    - when an agent notices an eavesdropper, an exclamation mark pops in its head
+    - when a human is within eavesdropping radius, he can read the conversation
+    - agents that are in a conversation get a list of characters that are within eavesdropping distance
+  - implementation:
+    - I think this can be handled by the conversation object, it can keep track of who is near enough, and broadcast the messages, and ask to do "reflections" when a conversation needs to be remembered
+    - It can also trigger the events to have agents notice eavesdropping, or prepend eavesdropping
+- [2023-12-05 06:53:32] trying to make the agents moving around a lot less haphazard
+  - I reduced the wandering distance to just 10 units, and also ais don't make invites to players beyond 10 units
 - [2023-12-04 14:51:20] we check on each game tick whether there are enough humans to play, and we also pick up straggling players and it works, now moving to other stuff
 - [2023-12-04 10:51:31] on game ending conditions [done]
   - I want to do a check on each tick, basically just check that there are enough humans for the game to continue in each tick; if not, then the game is labeled as game won [done]

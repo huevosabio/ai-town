@@ -16,6 +16,7 @@ import {
   MIDPOINT_THRESHOLD,
   PLAYER_CONVERSATION_COOLDOWN,
   MEMORY_LOOKBACK,
+  MAX_INVITE_DISTANCE
 } from '../constants';
 import { FunctionArgs } from 'convex/server';
 import { MutationCtx, internalMutation, internalQuery } from '../_generated/server';
@@ -468,6 +469,10 @@ export const findConversationCandidate = internalQuery({
         if (now < lastMember.ended + PLAYER_CONVERSATION_COOLDOWN) {
           continue;
         }
+      }
+      // finaly check if we're close enough
+      if (distance(position, otherPlayer.position) > MAX_INVITE_DISTANCE) {
+        continue;
       }
       candidates.push({ id: otherPlayer.id, position });
     }
