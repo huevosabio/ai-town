@@ -89,3 +89,5 @@ export const NOTIFICATION_EXPIRY = 60 * 1000;
 export const MAX_INVITE_DISTANCE = 10;
 
 export const MAX_WANDER_DISTANCE = 10;
+
+export const EAVESDROP_RADIUS = 3;

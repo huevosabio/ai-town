@@ -10,6 +10,8 @@
   - implementation:
     - I think this can be handled by the conversation object, it can keep track of who is near enough, and broadcast the messages, and ask to do "reflections" when a conversation needs to be remembered
     - It can also trigger the events to have agents notice eavesdropping, or prepend eavesdropping
+    - at every tick, basically keep track of who is within the eaves dropping radius
+    - I think I should add "eavesdroppers" for each message, so that for a conversationId i can pull only the messages that a given player was able to listen
 - [2023-12-05 06:53:32] trying to make the agents moving around a lot less haphazard
   - I reduced the wandering distance to just 10 units, and also ais don't make invites to players beyond 10 units
 - [2023-12-04 14:51:20] we check on each game tick whether there are enough humans to play, and we also pick up straggling players and it works, now moving to other stuff
