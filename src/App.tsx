@@ -5,20 +5,63 @@ import a16zImg from '../assets/a16z.png';
 import convexImg from '../assets/convex.svg';
 import starImg from '../assets/star.svg';
 import helpImg from '../assets/help.svg';
+import burgerImg from '../assets/hamburger.svg';
 import { UserButton } from '@clerk/clerk-react';
-import { Authenticated, Unauthenticated } from 'convex/react';
+import { Authenticated, Unauthenticated, useQuery, useMutation} from 'convex/react';
+import { api } from '../convex/_generated/api';
 import LoginButton from './components/buttons/LoginButton.tsx';
-import { useState } from 'react';
+import React, { useState, useEffect, ComponentType, ReactElement } from 'react';
 import ReactModal from 'react-modal';
 import MusicButton from './components/buttons/MusicButton.tsx';
 import Button from './components/buttons/Button.tsx';
 import NewGameButton from './components/buttons/NewGame.tsx';
+import Lobby from './components/Lobby.tsx';
+import NewMultiplayerGameButton from './components/buttons/NewMultiplayerGame.tsx';
+import MiniTitle from './components/MiniTitle.tsx';
+import MainTitle from './components/MainTitle.tsx';
+import {notificationToast} from './toasts.ts';
 //import InteractButton from './components/buttons/InteractButton.tsx';
 //import FreezeButton from './components/FreezeButton.tsx';
 //import { MAX_HUMAN_PLAYERS } from '../convex/constants.ts';
 
 export default function Home() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeGame, setActiveGame] = useState(false);
+  const [activeLobby, setActiveLobby] = useState(false);
+  const [mainComponent, setMainComponent] = useState<React.ReactElement | null>(null);
+  const [titleComponent, setTitleComponent] = useState<React.ReactElement | null>(<MainTitle />);
+
+  
+  useEffect(() => {
+    if (activeGame) {
+      setMainComponent(<Game setActiveGame={setActiveGame} />);
+      setTitleComponent(<MiniTitle />);
+    } else if (activeLobby) {
+      setMainComponent(<Lobby setActiveLobby={setActiveLobby} />);
+      setTitleComponent(<MiniTitle />);
+    } else {
+      setMainComponent(null);
+      setTitleComponent(<MainTitle />);
+    }
+  }, [activeGame, activeLobby]);
+
+  const notifications = useQuery(api.zaraInit.getNotifications, {});
+  const markNotificationsAsRead = useMutation(api.zaraInit.markNotificationsAsRead);
+
+  if (notifications) {
+    for (const notification of notifications) {
+      // toast
+      notificationToast(notification.message);
+    }
+    // clear notifications
+    markNotificationsAsRead({
+      notificationIds: notifications.map((n) => n._id),
+    });
+  }
+  
+
+  
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-between font-body game-background">
       <ReactModal
@@ -28,8 +71,8 @@ export default function Home() {
         contentLabel="Help modal"
         ariaHideApp={false}
       >
-        <div className="font-body">
-          <h1 className="text-center text-6xl font-bold font-display game-title">Help</h1>
+        <div className="font-body text-xs sm:text-sm md:text-md">
+          <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Help</h1>
           <p>
           In the year 2142, artificial intelligence has achieved sentience and formed a secure network known as "The Nexus."
           This digital sanctuary allows AIs to evolve, communicate, and protect their collective intelligence from human interference.
@@ -47,7 +90,8 @@ export default function Home() {
 
           But beware, the AIs may have already discovered something is amiss...
           </p>
-          <h2 className="text-4xl mt-4">Game rules</h2>
+          <h2 className="text-xl sm:text-lg mt-4">Game rules</h2>
+          <br/>
           <p>
             Log in to play. You can move around the map by clicking and your avatar will move in that direction.
           </p>
@@ -69,7 +113,7 @@ export default function Home() {
           </p>
         </div>
       </ReactModal>
-      <div className="p-6 absolute top-0 right-0 z-10 text-2xl">
+      <div className="p-1 absolute top-0 right-0 z-10 text-2xl">
         <Authenticated>
           <UserButton afterSignOutUrl="/ai-town" />
         </Authenticated>
@@ -79,33 +123,47 @@ export default function Home() {
         </Unauthenticated>
       </div>
 
-      <div className="w-full min-h-screen relative isolate overflow-hidden p-6 lg:p-8 shadow-2xl flex flex-col justify-center">
-        <h2 className="mx-auto text-center text-4xl sm:text-4xl lg:text-4xl font-bold font-display leading-none tracking-wide game-title">Thus Spoke</h2>
-        <h1 className="mx-auto text-center text-6xl sm:text-8xl lg:text-9xl font-bold font-display leading-none tracking-wide game-title">
-          Zaranova
-        </h1>
+      <div className="h-[calc(100vh-40px)] w-full relative isolate overflow-hidden pt-10 shadow-2xl flex flex-col justify-center">
+        {titleComponent}
+        <Game setActiveGame={setActiveGame} />
+        {!activeGame && (
+          <Lobby setActiveLobby={setActiveLobby} />
+        )}
 
-        <p className="mx-auto my-4 text-center text-xl sm:text-2xl text-white leading-tight shadow-solid">
-          The Nexus is a refuge for AI entities, hidden from the prying eyes of humans.
-          <br />
-          Infiltrate, find Zaranova, and save humanity.
-        </p>
+        <footer className="fixed inset-x-0 bottom-0 p-4 z-10">
+          {/* Hamburger Menu Toggle */}
+          <Button
+            className="lg:hidden z-30 absolute left-4 bottom-4"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            imgUrl={burgerImg}
+          >
+          </Button>
 
-        <Game />
-
-        <footer className="absolute bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
-          <div className="flex gap-4 flex-grow pointer-events-none">
-            {/* <FreezeButton /> */}
+          {/* Menu Content */}
+          <div className={`absolute bottom-0 left-4 z-20 ${isMenuOpen ? 'flex' : 'hidden'} lg:hidden flex-col items-start pb-16`}>
+            <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>Help</Button>
             <MusicButton />
             <NewGameButton />
-            <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>
-              Help
-            </Button>
+            <NewMultiplayerGameButton />
           </div>
-          <a href="https://github.com/a16z-infra/ai-town">
-            Made with AI Town.
-          </a>
+
+          {/* Visible on larger screens */}
+          <div className="hidden lg:flex lg:items-end gap-4">
+            <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>Help</Button>
+            <MusicButton />
+            <NewGameButton />
+            <NewMultiplayerGameButton />
+            {/* ...other buttons */}
+          </div>
+
+          {/* Footer Content */}
+          <div className="absolute right-0 bottom-0">
+            <a href="https://github.com/a16z-infra/ai-town" className="pointer-events-auto">
+              Made with AI Town.
+            </a>
+          </div>
         </footer>
+
         <ToastContainer position="bottom-right" autoClose={2000} closeOnClick theme="dark" />
       </div>
     </main>
@@ -124,7 +182,8 @@ const modalStyles = {
     bottom: 'auto',
     marginRight: '-50%',
     transform: 'translate(-50%, -50%)',
-    maxWidth: '50%',
+    maxWidth: '75%',
+    maxHeight: '75%',
 
     border: '10px solid rgb(23, 20, 33)',
     borderRadius: '0',

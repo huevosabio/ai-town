@@ -63,7 +63,6 @@ export const chatCompletionWithLogging = async (params: chatCompletionWithLoggin
     llm_model_id: process.env.LLM_MODEL_ID,
   };
   callLlmService(logPayload);
-  console.log(responseContent);
   return {
     content: responseContent,
     retries: response.retries,

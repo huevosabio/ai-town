@@ -16,6 +16,7 @@ import {
   MIDPOINT_THRESHOLD,
   PLAYER_CONVERSATION_COOLDOWN,
   MEMORY_LOOKBACK,
+  MAX_INVITE_DISTANCE
 } from '../constants';
 import { FunctionArgs } from 'convex/server';
 import { MutationCtx, internalMutation, internalQuery } from '../_generated/server';
@@ -79,7 +80,7 @@ export class Agent {
     }
     // check if we can run a slow operation if so do it
     if (this.inProgressSlowOp) {
-      if (now > this.inProgressSlowOp.started + ACTION_TIMEOUT) {
+      if (now > this.inProgressSlowOp.started + ACTION_TIMEOUT()) {
         // timed out
         console.log(`Timing out ${JSON.stringify(this.inProgressSlowOp)}`);
         delete this.inProgressSlowOp;
@@ -127,7 +128,7 @@ export class Agent {
       }
     }
     if (this.inProgressOperation) {
-      if (now < this.inProgressOperation.started + ACTION_TIMEOUT) {
+      if (now < this.inProgressOperation.started + ACTION_TIMEOUT()) {
         // Wait on the operation to finish.
         return;
       }
@@ -136,7 +137,7 @@ export class Agent {
     }
     const conversation = game.world.playerConversation(player);
     const member = conversation?.participants.get(player.id);
-
+    
     const recentlyAttemptedInvite =
       this.lastInviteAttempt && now < this.lastInviteAttempt + CONVERSATION_COOLDOWN;
     const doingActivity = player.activity && player.activity.until > now;
@@ -432,6 +433,7 @@ export const agentSendMessage = internalMutation({
       author: args.playerId,
       text: args.text,
       messageUuid: args.messageUuid,
+      worldId: args.worldId,
     });
     await insertInput(ctx, args.worldId, 'agentFinishSendingMessage', {
       conversationId: args.conversationId,
@@ -467,6 +469,10 @@ export const findConversationCandidate = internalQuery({
         if (now < lastMember.ended + PLAYER_CONVERSATION_COOLDOWN) {
           continue;
         }
+      }
+      // finaly check if we're close enough
+      if (distance(position, otherPlayer.position) > MAX_INVITE_DISTANCE) {
+        continue;
       }
       candidates.push({ id: otherPlayer.id, position });
     }

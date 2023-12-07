@@ -1,4 +1,3 @@
-import { defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { ActionCtx, DatabaseReader, internalMutation, internalQuery } from '../_generated/server';
 import { Doc, Id } from '../_generated/dataModel';
@@ -8,51 +7,18 @@ import { asyncMap } from '../util/asyncMap';
 import { chatCompletionWithLogging } from '../util/chat_completion';
 import { GameId, agentId, conversationId, playerId } from '../aiTown/ids';
 import { SerializedPlayer } from '../aiTown/player';
+import { UseOllama, ollamaChatCompletion } from '../util/ollama';
+import { memoryFields } from './schema';
+
+//const completionFn = UseOllama ? ollamaChatCompletion : chatCompletion;
 
 // How long to wait before updating a memory's last access time.
 export const MEMORY_ACCESS_THROTTLE = 300_000; // In ms
 // We fetch 10x the number of memories by relevance, to have more candidates
 // for sorting by relevance + recency + importance.
 const MEMORY_OVERFETCH = 10;
-
 const selfInternal = internal.agent.memory;
 
-const memoryFields = {
-  playerId,
-  description: v.string(),
-  embeddingId: v.id('memoryEmbeddings'),
-  importance: v.number(),
-  lastAccess: v.number(),
-  data: v.union(
-    // Setting up dynamics between players
-    v.object({
-      type: v.literal('relationship'),
-      // The player this memory is about, from the perspective of the player
-      // whose memory this is.
-      playerId,
-    }),
-    v.object({
-      type: v.literal('conversation'),
-      conversationId,
-      // The other player(s) in the conversation.
-      playerIds: v.array(playerId),
-    }),
-    v.object({
-      type: v.literal('reflection'),
-      relatedMemoryIds: v.array(v.id('memories')),
-    }),
-    v.object({
-      type: v.literal('plan'),
-      relatedMemoryIds: v.array(v.id('memories')),
-    }),
-    v.object({
-      type: v.literal('event'),
-      conversationId: v.optional(conversationId),
-      // The other player(s) in the conversation.
-      playerIds: v.array(playerId),
-    }),
-  ),
-};
 export type Memory = Doc<'memories'>;
 export type MemoryType = Memory['data']['type'];
 export type MemoryOfType<T extends MemoryType> = Omit<Memory, 'data'> & {
@@ -73,8 +39,9 @@ export async function rememberConversation(
   });
   const { player, otherPlayer } = data;
   const {agentDescription} = await ctx.runQuery(selfInternal.loadAgentDescription, { worldId, agentId });
-  const messages = await ctx.runQuery(selfInternal.loadMessages, { conversationId });
+  const messages = await ctx.runQuery(selfInternal.loadMessages, { worldId, conversationId });
   const events = await ctx.runQuery(selfInternal.loadEventsFromConversation, {
+    worldId,
     playerId,
     conversationId,
   });
@@ -132,12 +99,18 @@ export async function rememberConversation(
   const importance = await calculateImportance(description, playerId, worldId);
   const { embedding } = await fetchEmbedding(description);
   authors.delete(player.id as GameId<'players'>);
+  // last access is the latest time of record of messages and events
+  const lastAccess = Math.max(
+    messages[messages.length - 1]?._creationTime ?? 0,
+    events[events.length - 1]?._creationTime ?? 0,
+  );
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
+    worldId,
     playerId: player.id,
     description,
     importance,
-    lastAccess: messages[messages.length - 1]._creationTime,
+    lastAccess: lastAccess,
     data: {
       type: 'conversation',
       conversationId,
@@ -229,11 +202,13 @@ export async function reflectOnRecentConversations(
   memoryLookback: number,
 ) {
   const memories = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    worldId,
     playerId,
     n: memoryLookback,
     type: 'conversation',
   });
   const events = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    worldId,
     playerId,
     n: memoryLookback,
     type: 'event',
@@ -281,6 +256,7 @@ export async function reflectOnRecentConversations(
   const description = `Reflection on recent conversations and events at  ${new Date(now).toLocaleString()}: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
+    worldId,
     playerId,
     description,
     importance,
@@ -302,6 +278,7 @@ export async function createAndUpdatePlan(
   reflection: string,
 ) {
   const reflections = await ctx.runQuery(selfInternal.recallRecentMemories, {
+    worldId,
     playerId,
     n: 1,
     type: 'reflection',
@@ -343,6 +320,7 @@ export async function createAndUpdatePlan(
   const description = `New plan at  ${new Date(now).toLocaleString()} based on recent conversations: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId,
+    worldId,
     playerId,
     description,
     importance,
@@ -399,7 +377,8 @@ export async function rememberEvent(
   const { embedding } = await fetchEmbedding(description);
   await ctx.runMutation(selfInternal.insertMemory, {
     agentId: agentId,
-    playerId: playerId,
+    worldId: worldId,
+    playerId,
     description,
     importance,
     lastAccess: Date.now(),
@@ -458,6 +437,7 @@ export const loadAgentDescription = internalQuery({
 
 export const recallRecentMemories = internalQuery({
   args: {
+    worldId: v.id('worlds'),
     playerId,
     n: v.number(),
     type: v.optional(v.string()),
@@ -465,7 +445,7 @@ export const recallRecentMemories = internalQuery({
   handler: async (ctx, args) => {
     const memories = await ctx.db
       .query('memories')
-      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
+      .withIndex('worldId_playerId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
       .filter((q) => q.eq(q.field('data.type'), args.type))
       .order('desc')
       .take(args.n);
@@ -475,13 +455,14 @@ export const recallRecentMemories = internalQuery({
 
 export async function searchMemories(
   ctx: ActionCtx,
+  worldId: Id<'worlds'>,
   playerId: GameId<'players'>,
   searchEmbedding: number[],
   n: number = 3,
 ) {
   const candidates = await ctx.vectorSearch('memoryEmbeddings', 'embedding', {
     vector: searchEmbedding,
-    filter: (q) => q.eq('playerId', playerId),
+    filter: (q) => q.eq('worldPlayerId', worldId + playerId),
     limit: n * MEMORY_OVERFETCH,
   });
   const rankedMemories = await ctx.runMutation(selfInternal.rankAndTouchMemories, {
@@ -546,11 +527,13 @@ export const rankAndTouchMemories = internalMutation({
 });
 
 export const loadMessages = internalQuery({
-  args: { conversationId },
+  args: {
+    worldId: v.id('worlds'),
+    conversationId },
   handler: async (ctx, args): Promise<Doc<'messages'>[]> => {
     const messages = await ctx.db
       .query('messages')
-      .withIndex('conversationId', (q) => q.eq('conversationId', args.conversationId))
+      .withIndex('conversationId', (q) => q.eq('worldId', args.worldId).eq('conversationId', args.conversationId))
       .collect();
     return messages;
   },
@@ -562,8 +545,8 @@ async function calculateImportance(description: string, playerId: GameId<'player
       {
         role: 'user',
         content: `On the scale of 0 to 9, where 0 is purely mundane (e.g., brushing teeth, making bed) and 9 is extremely poignant (e.g., a break up, college acceptance), rate the likely poignancy of the following piece of memory.
-        Memory: ${description}
-        Answer on a scale of 0 to 9. Respond with number only, e.g. "5"`,
+      Memory: ${description}
+      Answer on a scale of 0 to 9. Respond with number only, e.g. "5"`,
       },
     ],
     temperature: 0.0,
@@ -595,6 +578,7 @@ export const insertMemory = internalMutation({
   },
   handler: async (ctx, { agentId, embedding, ...memory }): Promise<void> => {
     const embeddingId = await ctx.db.insert('memoryEmbeddings', {
+      worldPlayerId: memory.worldId + playerId,
       playerId: memory.playerId,
       embedding: embedding,
     });
@@ -618,14 +602,16 @@ export const insertReflectionMemories = internalMutation({
       }),
     ),
   },
-  handler: async (ctx, { playerId, reflections }) => {
+  handler: async (ctx, { worldId, playerId, reflections }) => {
     const lastAccess = Date.now();
     for (const { embedding, relatedMemoryIds, ...rest } of reflections) {
       const embeddingId = await ctx.db.insert('memoryEmbeddings', {
+        worldPlayerId: worldId + playerId,
         playerId,
         embedding: embedding,
       });
       await ctx.db.insert('memories', {
+        worldId,
         playerId,
         embeddingId,
         lastAccess,
@@ -736,14 +722,16 @@ export const getReflectionMemories = internalQuery({
     }
     const memories = await ctx.db
       .query('memories')
-      .withIndex('playerId', (q) => q.eq('playerId', player.id))
+      .withIndex('worldId_playerId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
       .order('desc')
       .take(args.numberOfItems);
 
     const lastReflection = await ctx.db
       .query('memories')
-      .withIndex('playerId_type', (q) =>
-        q.eq('playerId', args.playerId).eq('data.type', 'reflection'),
+      .withIndex('worldId_playerId_type',
+        (q) => q.eq('worldId', args.worldId)
+          .eq('playerId', args.playerId)
+          .eq('data.type', 'reflection')
       )
       .order('desc')
       .first();
@@ -758,44 +746,37 @@ export const getReflectionMemories = internalQuery({
 
 export async function latestMemoryOfType<T extends MemoryType>(
   db: DatabaseReader,
+  worldId: Id<'worlds'>,
   playerId: GameId<'players'>,
   type: T,
 ) {
   const entry = await db
     .query('memories')
-    .withIndex('playerId_type', (q) => q.eq('playerId', playerId).eq('data.type', type))
+    .withIndex('worldId_playerId_type',
+        (q) => q.eq('worldId', worldId)
+          .eq('playerId', playerId)
+          .eq('data.type', type)
+      )
     .order('desc')
     .first();
   if (!entry) return null;
   return entry as MemoryOfType<T>;
 }
-
-export const memoryTables = {
-  memories: defineTable(memoryFields)
-    .index('embeddingId', ['embeddingId'])
-    .index('playerId_type', ['playerId', 'data.type'])
-    .index('playerId', ['playerId']),
-  memoryEmbeddings: defineTable({
-    playerId,
-    embedding: v.array(v.float64()),
-  }).vectorIndex('embedding', {
-    vectorField: 'embedding',
-    filterFields: ['playerId'],
-    dimensions: 1536,
-  }),
-};
-
-
 // queries events associated with a conversation
 export const loadEventsFromConversation = internalQuery({
   args: {
+    worldId: v.id('worlds'),
     playerId,
     conversationId,
   },
   handler: async (ctx, args) => {
     const events = await ctx.db
       .query('memories')
-      .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'event'))
+      .withIndex('worldId_playerId_type',
+        (q) => q.eq('worldId', args.worldId)
+          .eq('playerId', args.playerId)
+          .eq('data.type', 'event')
+      )
       .filter((q) => q.eq(q.field('data.conversationId'), args.conversationId))
       .collect();
     return events;
@@ -804,12 +785,17 @@ export const loadEventsFromConversation = internalQuery({
 
 export const loadEvents = internalQuery({
   args: {
+    worldId: v.id('worlds'),
     playerId: v.id('players'),
   },
   handler: async (ctx, args) => {
     const events = await ctx.db
       .query('memories')
-      .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'event'))
+      .withIndex('worldId_playerId_type',
+        (q) => q.eq('worldId', args.worldId)
+          .eq('playerId', args.playerId)
+          .eq('data.type', 'event')
+      )
       .collect();
     return events;
   }

@@ -21,6 +21,7 @@ import {
   ACTIVITIES,
   ACTIVITY_COOLDOWN,
   CONVERSATION_COOLDOWN,
+  MAX_WANDER_DISTANCE,
   MEMORY_LOOKBACK,
 } from '../constants';
 import { api, internal } from '../_generated/api';
@@ -28,6 +29,9 @@ import { sleep } from '../util/sleep';
 import { serializedPlayer } from './player';
 import { loadWorldStatus, stopEngine } from '../aiTown/main';
 import { insertInput } from '../aiTown/insertInput';
+import {getValidMapPoints} from './movement';
+import { Point } from '../util/types';
+import { distance } from '../util/geometry';
 
 export const agentRememberConversation = internalAction({
   args: {
@@ -123,14 +127,7 @@ export const agentGenerateMessage = internalAction({
             'agentReported',
             args.conversationId as GameId<'conversations'>,
           )
-          // stop if this is a human
-          // this should be a human
-          await ctx.runMutation(internal.aiTown.zaranovaLogic.stopIfHumanReported, {
-            worldId: args.worldId,
-            playerId: args.otherPlayerId,
-          });
-          // otherwise boot if its an ai
-          await ctx.runMutation(internal.aiTown.zaranovaLogic.bootAIIfReported, {
+          await ctx.runMutation(internal.aiTown.zaranovaLogic.handleReportedPlayer, {
             worldId: args.worldId,
             playerId: args.otherPlayerId,
           });
@@ -208,7 +205,8 @@ export const agentDoSomething = internalAction({
     const recentActivity = player.activity && now < player.activity.until + ACTIVITY_COOLDOWN;
     // Decide whether to do an activity or wander somewhere.
     if (!player.pathfinding) {
-      if (recentActivity || justLeftConversation) {
+      if (true || recentActivity || justLeftConversation) {
+        // TODO: note this is always activated! remove the true later on
         await sleep(Math.random() * 1000);
         await ctx.runMutation(api.aiTown.main.sendInput, {
           worldId: args.worldId,
@@ -216,7 +214,7 @@ export const agentDoSomething = internalAction({
           args: {
             operationId: args.operationId,
             agentId: agent.id,
-            destination: wanderDestination(map),
+            destination: wanderDestination(map, player.position),
           },
         });
         return;
@@ -344,10 +342,12 @@ export const agentRememberRejection = internalAction({
   },
 });
 
-function wanderDestination(worldMap: WorldMap) {
+function wanderDestination(worldMap: WorldMap, position?: Point) {
   // Wander someonewhere at least one tile away from the edge.
-  return {
-    x: 1 + Math.floor(Math.random() * (worldMap.width - 2)),
-    y: 1 + Math.floor(Math.random() * (worldMap.height - 2)),
-  };
+  // limit wander distance if we pass a position
+  const validPoints = getValidMapPoints(worldMap).filter(
+    (p) => position ? distance(p, position) < MAX_WANDER_DISTANCE : true
+  );
+  const randomIndex = Math.floor(Math.random() * validPoints.length);
+  return validPoints[randomIndex];
 }

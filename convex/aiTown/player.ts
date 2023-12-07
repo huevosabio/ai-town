@@ -91,6 +91,7 @@ export class Player {
 
   tick(game: Game, now: number) {
     if (this.human && this.lastInput < now - HUMAN_IDLE_TOO_LONG) {
+      console.log('Human idle too long, leaving game', this.lastInput, now - HUMAN_IDLE_TOO_LONG);
       this.leave(game, now);
     }
   }

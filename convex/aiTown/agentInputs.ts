@@ -5,7 +5,7 @@ import { Conversation, conversationInputs } from './conversation';
 import { movePlayer } from './movement';
 import { inputHandler } from './inputHandler';
 import { point } from '../util/types';
-import { Descriptions } from '../../data/characters';
+import { Descriptions, secretCodeHolderPlan, regularPlan} from '../../data/characters';
 import { AgentDescription } from './agentDescription';
 import { Agent } from './agent';
 
@@ -195,7 +195,7 @@ export const agentInputs = {
         new AgentDescription({
           agentId: agentId,
           identity: description.identity,
-          plan: description.plan,
+          plan: args.hasSecretCode ? secretCodeHolderPlan : regularPlan,
         }),
       );
       return { agentId };

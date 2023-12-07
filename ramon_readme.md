@@ -1,5 +1,155 @@
 ## This is Ramon's log
 
+- [2023-12-05 10:18:15] I am now going to implement eavesdropping dynamic, this has multiple parts
+  - reqs:
+    - when a player is too close to an agent that is in a conversation, the agent notices that the player eaves dropped
+    - when an agent is too close to a player that is in a conversation, the messages that are stated during the conversation get stored as memories
+    - when an agent notices an eavesdropper, an exclamation mark pops in its head
+    - when a human is within eavesdropping radius, he can read the conversation
+    - agents that are in a conversation get a list of characters that are within eavesdropping distance
+  - implementation:
+    - I think this can be handled by the conversation object, it can keep track of who is near enough, and broadcast the messages, and ask to do "reflections" when a conversation needs to be remembered
+    - It can also trigger the events to have agents notice eavesdropping, or prepend eavesdropping
+    - at every tick, basically keep track of who is within the eaves dropping radius
+    - I think I should add "eavesdroppers" for each message, so that for a conversationId i can pull only the messages that a given player was able to listen
+- [2023-12-05 06:53:32] trying to make the agents moving around a lot less haphazard
+  - I reduced the wandering distance to just 10 units, and also ais don't make invites to players beyond 10 units
+- [2023-12-04 14:51:20] we check on each game tick whether there are enough humans to play, and we also pick up straggling players and it works, now moving to other stuff
+- [2023-12-04 10:51:31] on game ending conditions [done]
+  - I want to do a check on each tick, basically just check that there are enough humans for the game to continue in each tick; if not, then the game is labeled as game won [done]
+- [2023-12-02 10:10:24] I am going to shelf the pathfinding improvements for now since I think the backoff worked to a certain extent and I don't want to make any major changes at the moment.
+- [2023-12-02 09:47:59] found a small bug and fixed on message-less conversatiosn (i.e. rejected conversations)
+- [2023-11-30 12:54:26] notes on pathfinding
+  - you should walk towards the other when inviting 
+- [2023-11-30 12:02:07] Back after hiatus, looking again into pathfinding
+  - I want to see why is it not updated immidiately, it seems like the path is not being computed immidiately after accept
+- [2023-11-28 12:18:29] Looking at pathfinding now, I need to make it, much, much better.
+  - lowering the collission backoff makes a big improvement already
+  - but a big other issue is that on accept the pathfinding is not autmatically updated, I think whenever a player accepts or invites, it should walk there
+    - in principle this is handled by updating the status, but it is not being updated fast enough
+- [2023-11-28 10:29:54] recorded a quick overall multiplayer playthrough to catch issues, found several:
+	- rendering is still too janky and slow [TODO]
+    - I think the issue is the order of the components, frankly I should move playing/lobby to its own endpoints rather than overloading everything on a single app
+	- white rendering issue, I think it has to do with size of window? [done]
+    - I think this is a scroll issue
+	- the movement is broken: they end up wandering all over, and they end up not being able to talk for a while, it should be much faster for them to approach and talk [TODO]
+    - this will require a much closer look
+	- character was moving even as the conversation started [TODO]
+- [2023-11-28 06:19:56] something broke the pathfinding algo
+- [2023-11-27 16:37:43] had to solve by creating a `worldPlayerId` field that just concatenates the two since convex doesn't allow for `and` filters.
+- [2023-11-27 16:07:32] found more leakage. the `searchMemories` function searches over players, which would surface then memories from other worlds. 
+  - add world id to memory embeddings [done]
+  - make sure to use world id whenever searching embeddings [done]
+- [2023-11-27 15:49:49] I think I finished the notification system _and_ added the notifications for when someone is reported. I will try testing more!
+- [2023-11-26 10:27:21] I added the toaster for copy link, I am going to also add the toaster for when someone gets thrown out, so, I am going to need an "event" system that announces when something happens
+  - I need to trigger whenever someone gets "erradicated" whether by reporting, idleness or whatever reason.
+  - I am creating a pub-sub notification system
+    - notification table with userId, message, isRead, expiryDate, and worldId columns [done]
+    - we query notifications and after sending we update the table to mark as read  [done]
+    - notifications with a worldId get emmitted only if the game is active [done]
+    - notifications without a worldID are emmitted only if there is no active game [done]
+- [2023-11-24 15:33:24] AI characters start with a bubble, I want to remove that [done]
+- [2023-11-24 13:56:17] the bug of dissapearing player is real, unsure how to replicate
+  - I know what the issue is, since the big merge, lastInput is no longer used so humans dissapear at a fixed point after instantiation!
+  - this is an issue on the main ai town as well actually, I need to update last input on inputs like moving, and on type/message
+  - that was it!
+- [2023-11-24 11:02:30] Ok, now I am going to remove activities, they are just wasting time and mislead the players to stuff that isn't
+  - i am thinking, instead of activities, this could be the place for choosing to go towards someone
+  - e.g. use this spot to choose to go talk to someone, or walk towards someone
+  - for now I am just going to avoid activities all together.
+- [2023-11-24 08:04:33] more observations
+  - the game starts with all agents in dumb thought, making it slow, need to make them act immidiately [done]
+  - the characters get out of character every now and then, I had not seen this before, I wonder if its a gpt4 turbo thing [TODO]
+- [2023-11-24 07:56:09] yesterday was spent mostly solving the map issue; I am back now with 
+- [2023-11-22 21:29:07] more bugs
+  - the user character dissapeared in a single game, I don't know why though, maybe its a hearbeat problem where by being on the plane the heart beats don't register correctly? [done]
+- [2023-11-21 10:35:33] general improvements
+  - setting the number of secret codes to one per human [done]
+  - setting max number of users to 4 [done]
+  - create 20 character descriptions [done]
+  - create 20 character sprites [done]
+    - almost there, just need to make sure it works
+  - remove activities [done]
+  - fix the leakage bug [done]
+  - the map is weird when the game starts, I think its because the height does not update immidiately []
+    - I think I know what the issue is, for whatever reason the initial height/width is wrong and then it takes an actual resizing for this to propagate. 
+    - the solution was to use ResizeObserver + keep the ref/setRef instead of using useRef; modified the custom useElementSize found here: https://github.com/juliencrn/usehooks-ts/issues/236#issuecomment-1291001854
+- [2023-11-21 09:38:35] when starting a game the loading is super janky
+  - it is slow and it renders in parts, I need to make it smoother[done]
+    - I think it got better, by just solving the other stuff
+  - the map defaults to some top left spot, I need to center it on your character [done]
+- [2023-11-21 09:37:04] I've resumed where i left yesterday
+- [2023-11-20 18:36:06] time to revamp the lobby
+  - there is a weird glitch that some of the elements have weird white stuff on the right but only on my other browser[done]
+    - could not replicate, leaving behind
+  - I need to decide what I am going to fill the right side with, maybe a pic explaining the game? [done]
+  - I decided to write the instructions, I just need to update them [TODO]
+  - when I create "new party" it throws user is already in part error, I need to fix that [done]
+    - actually the issue is on the url, I should remove the search when clicking on other buttons
+- [2023-11-20 12:57:03] it seems we have further leakage :(
+    - its also because of non-unique player ids :( [done]
+    - so I need to pass world id, but memories are already not worldId related; sort of needing to do unique ids [done]
+- [2023-11-20 08:50:55] prettification tasks:
+  - top "navbar" needs to always be clear not overlap with the game [done]
+  - game frame border has to be much smaller [done]
+  - the top part of the chat should have the character's face [done]
+  - the win/lose banner should be centered and across the screen with low opacity background [done, well not the background, but alas]
+  - mobile screen should show the map or the chat, but not both [done]
+    - when no conversation is on, it should be just on the bottom; [done]
+    - when there is an ongoing conversation, it should take the whole game area [done]
+  - when in mobile mode, the bottom buttons should not appear [done]
+- [2023-11-19 20:25:44] Ok, I'm going to change the frame such that it fits most of the screen except the title area
+- [2023-11-17 09:53:21] Ok, I am going to make the title a navbar thing if we have either an active lobby or game [done];
+- [2023-11-16 17:33:52] improve the buttons for non mobile, I think keeping a smaller text works better [done]
+- [2023-11-16 14:26:05] bugs
+  - if you have an open lobby it appears when you creat a gam, I need to close past lobbys when I start a new game
+- [2023-11-16 11:25:17] i've decided to do a lot of prettifying actually, so I'm starting with getting the title screen in nicer state
+  - I think on laptop the title screen doesn't need anything
+  - on mobile, the help modal is horrible, needs to look nice [done]
+  - on mobile, the music dissapears, im going to fix that; I am actually going to create a hamburger button to place all options on mobile since the buttons are huge [done]
+- [2023-11-14 15:51:14] Functionally, it's all there, I need to prettify it, first set:
+  - the lobby looks horrible, I need to make a proper table that has the retro look,
+  - and place the buttons in a more aesthetic way, maybe even making the font smaller
+  - remove the title and subtitle and add them to the top whenever its not the main screen
+  - move the game area to cover more of the screen, preferably all the width and most of the height
+  - the link sharing button has to give an alert that shows that it has been clicked
+  - There should be no reason for the page to need scrolling, it should all fit in there.
+  - change the frame to look more like a monitor screen
+- [2023-11-14 12:46:40] back after a meeting and breakfast
+  - so, now I need to fix the bugs below, let's start with the victory banner, that should be easy
+  - it was easy! ok now try to replicate the second bug; I have it again, so what is it?
+  - I think I know what it is: the conversation and author ids are global, so they end up mixing across worlds
+- [2023-11-14 10:25:05] ok, I have the basic logic for multiplayer, time to test
+  - BUG: clear leakage of prior conversations, f-me [done]
+  - BUG: game does end when there is a last human, but the victory banner is not there :( [done]
+- [2023-11-13 12:28:21] I can start a game, but it still has the cooperative version (which we can bring back?) time to chagne the game conditions to match the Hv.H
+  - if reported, human loses, his player is removed -> callback after report [done]
+  - if gets secret code, human wins and game ends -> normal game result [done]
+  - if last human, human wins and game ends -> callback after report? [done]
+  - need to change the status of the game so the banner shows who won or if you lost [done]
+- [2023-11-13 12:03:53] I have a janky lobby system, but the returend game is all wrong, going to check that
+- [2023-11-12 13:24:15] ok, now let's do the lobby room functionality, this should
+  - provide a button to create a new lobby [done]
+  - provide a button to join someone's lobby [done]
+  - when you create a lobby, you should remove the default world and it should take you to there
+  - a view of the lobby, with the users  [done]
+- [2023-11-12 11:18:54] back after a day break, I want to create the custom init, it should
+  - check who is in the party [done]
+  - remove their default worlds [done]
+  - create a new world [done]
+  - allocate secret code at random [done]
+  - allocate human characters at random [done]
+  - instantiate agents and players [done]
+  - set new world as default for users [done]
+- [2023-11-10 17:05:31] ok now I need to be able to create multi-player game from init
+  - create a lobby schema [done]
+  - this may require a different init? [done]
+  - the init should be initiated from who is in the lobby, so maybe create a notion of a "party"?
+  - when the party is all there, then you can start the game, which then goes to `initMultiPlayerGame` and assigns the players to characters
+  - max the lobby at 3?
+- [2023-11-10 16:22:49] moving to multiplayer, I am going to first
+  - change the worldStatus to mark if it multiplayer or solo [done]
+  - create a user table that has the current default world and other goodies if necessary [done]
 - [2023-11-10 10:28:10] never mind the share code functionality isn't working [done]
   - we need to update player state via input handlers
   - it works now!

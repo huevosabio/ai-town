@@ -26,6 +26,18 @@ export const init = mutation({
           '/settings?var=OPENAI_API_KEY',
       );
     }
+    const identity = (await ctx.auth.getUserIdentity())!;
+    // check if there is a user, otherwise create one
+    const user = await ctx.db
+      .query('users')
+      .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
+      .first()
+    if (!user) {
+      await ctx.db.insert('users', {
+        username: identity.givenName ?? 'Anonymous',
+        tokenId: identity.tokenIdentifier,
+      });
+    }
     // first find if there is a current running, stop and archive it
     await stopDefaultWorld(ctx);
     const { worldStatus, engine } = await createWorld(ctx); // which is tied to the user
@@ -36,8 +48,7 @@ export const init = mutation({
       return;
     }
     // Send inputs to create players for all of the agents.
-    // This the human player gets assigned one of the characters.
-    const identity = (await ctx.auth.getUserIdentity())!;
+    // the human player gets assigned one of the characters.
     // choose at random from the available characters, removes one as one has the secret code
     const numAgents = Math.min(args.numAgents ?? DEFAULT_NUM_AGENTS, Descriptions.length);
     const user_number = Math.floor(Math.random() * (numAgents - 1));
@@ -92,22 +103,29 @@ export const init = mutation({
 });
 export default init;
 
-export async function getDefaultWorld(ctx: MutationCtx, userId?: string) {
-  if (!userId){
-    const identity = (await ctx.auth.getUserIdentity())!;
-    userId = identity.tokenIdentifier;
-  }
+export async function getDefaultWorld(ctx: MutationCtx) {
 
-  const identity = await ctx.auth.getUserIdentity();
+  const identity = (await ctx.auth.getUserIdentity())!;
   if (!identity) {
     throw new Error('No user identity found');
   }
   const now = Date.now();
 
-  let worldStatus = await ctx.db
-    .query('worldStatus')
-    .filter((q) => q.eq(q.field('isDefault'), true))
-    .unique();
+  // get default world
+  const user = await ctx.db
+    .query('users')
+    .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
+    .first()
+  if (!user) {
+    throw new Error(`User ${identity.tokenIdentifier} not found`);
+  }
+  // get world status for user
+  if (!user.defaultWorldStatusId) {
+    return { worldStatus: undefined, engine: undefined };
+  }
+
+  const worldStatus = (await ctx.db.get(user.defaultWorldStatusId))!;
+
   if (worldStatus) {
     const engine = (await ctx.db.get(worldStatus.engineId))!;
     return { worldStatus, engine };
@@ -116,12 +134,19 @@ export async function getDefaultWorld(ctx: MutationCtx, userId?: string) {
   }
 }
 
-async function createWorld(ctx: MutationCtx) {
+export async function createWorld(ctx: MutationCtx) {
   const now = Date.now();
   // get authed user
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error('No user identity found');
+  }
+  const user = await ctx.db
+    .query('users')
+    .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
+    .first()
+  if (!user) {
+    throw new Error(`User ${identity.tokenIdentifier} not found`);
   }
   const engineId = await createEngine(ctx);
   const engine = (await ctx.db.get(engineId))!;
@@ -137,8 +162,10 @@ async function createWorld(ctx: MutationCtx) {
     lastViewed: now,
     status: 'running',
     worldId: worldId,
-    userId: identity.tokenIdentifier,
+    isSoloGame: true,
   });
+  // patch user with world status
+  await ctx.db.patch(user._id, { defaultWorldStatusId: worldStatusId });
   const worldStatus = (await ctx.db.get(worldStatusId))!;
   console.log(map);
   await ctx.db.insert('maps', {
@@ -169,7 +196,7 @@ async function getOrCreateDefaultWorld(ctx: MutationCtx) {
   }
   const now = Date.now();
 
-  const {worldStatus, engine } = await getDefaultWorld(ctx, identity.tokenIdentifier);
+  const {worldStatus, engine } = await getDefaultWorld(ctx);
 
   if (worldStatus) {
     return { worldStatus, engine };
@@ -178,7 +205,7 @@ async function getOrCreateDefaultWorld(ctx: MutationCtx) {
   return await createWorld(ctx);
 }
 
-async function shouldCreateAgents(
+export async function shouldCreateAgents(
   db: DatabaseReader,
   worldId: Id<'worlds'>,
   engineId: Id<'engines'>,

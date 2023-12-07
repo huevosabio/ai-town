@@ -51,6 +51,7 @@ export function movePlayer(
       kind: 'needsPath',
     },
   };
+  player.lastInput = now;
   return;
 }
 
@@ -191,18 +192,11 @@ export function blockedWithPositions(position: Point, otherPositions: Point[], m
 export function getRandomUnblockedPoint(game: Game, now: number, playerId?: GameId<'players'>): Point | null {
   const unblockedPoints: Point[] = [];
 
-  for (let x = 0; x < game.worldMap.width; x++) {
-    for (let y = 0; y < game.worldMap.height; y++) {
-      if (
-        (
-          game.worldMap.objectTiles[0][x][y] || game.worldMap.objectTiles[1][x][y]
-        ) === -1
-      ) {
-        const point: Point = { x, y };
-        if (!blocked(game, now, point, playerId)) {
-          unblockedPoints.push(point);
-        }
-      }
+  const validPoints = getValidMapPoints(game.worldMap);
+
+  for (const point of validPoints) {
+    if (!blocked(game, now, point, playerId)) {
+      unblockedPoints.push(point);
     }
   }
 
@@ -212,4 +206,21 @@ export function getRandomUnblockedPoint(game: Game, now: number, playerId?: Game
 
   const randomIndex = Math.floor(Math.random() * unblockedPoints.length);
   return unblockedPoints[randomIndex];
+}
+
+export function getValidMapPoints(map: WorldMap) {
+  const validPoints: Point[] = [];
+  for (let x = 0; x < map.width; x++) {
+    for (let y = 0; y < map.height; y++) {
+      if (
+        (
+          map.objectTiles[0][x][y] || map.objectTiles[1][x][y]
+        ) === -1
+      ) {
+        const point: Point = { x, y };
+        validPoints.push(point);
+      }
+    }
+  }
+  return validPoints;
 }

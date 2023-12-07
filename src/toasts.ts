@@ -8,3 +8,7 @@ export async function toastOnError<T>(promise: Promise<T>): Promise<T> {
     throw error;
   }
 }
+
+export async function notificationToast<T>(message: string) {
+  toast.info(message);
+}

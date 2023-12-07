@@ -10,11 +10,20 @@ import { engineInsertInput } from './engine/abstractGame';
 export const defaultWorldStatus = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    const worldStatus = await ctx.db
-      .query('worldStatus')
-      .filter((q) => q.eq(q.field('userId'), identity?.tokenIdentifier))
-      .filter((q) => q.eq(q.field('isDefault'), true))
+    if (!identity) {
+      return null;
+    }
+    const user = await ctx.db
+      .query('users')
+      .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
       .first();
+    if (!user) {
+      return null;
+    }
+    if (!user.defaultWorldStatusId) {
+      return null; 
+    }
+    const worldStatus = await ctx.db.get(user.defaultWorldStatusId);
     return worldStatus;
   },
 });

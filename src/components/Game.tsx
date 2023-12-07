@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef} from 'react';
 import PixiGame from './PixiGame.tsx';
-
-import { useElementSize } from 'usehooks-ts';
+import { Id } from '../../convex/_generated/dataModel';
+import { useElementSize } from '../hooks/useElementSize.ts';//'usehooks-ts';
 import { Stage } from '@pixi/react';
-import { ConvexProvider, useConvex, useQuery } from 'convex/react';
+import { ConvexProvider, useConvex, useQuery, useMutation} from 'convex/react';
 import PlayerDetails from './PlayerDetails.tsx';
 import { api } from '../../convex/_generated/api';
 import { useWorldHeartbeat } from '../hooks/useWorldHeartbeat.ts';
@@ -12,22 +12,39 @@ import { DebugTimeManager } from './DebugTimeManager.tsx';
 import VictoryBanner from './VictoryBanner.tsx';
 import { GameId } from '../../convex/aiTown/ids.ts';
 import { useServerGame } from '../hooks/serverGame.ts';
+import { notificationToast } from '../toasts.ts';
 
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
-export default function Game() {
+export default function Game({ setActiveGame }: { setActiveGame: (active: boolean) => void}) {
   const convex = useConvex();
   const [selectedElement, setSelectedElement] = useState<{
     kind: 'player';
     id: GameId<'players'>;
   }>();
   const [gameWrapperRef, { width, height }] = useElementSize();
+  const markNotificationsAsRead = useMutation(api.zaraInit.markNotificationsAsRead);
+
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);
   const worldId = worldStatus?.worldId;
   const engineId = worldStatus?.engineId;
 
   const game = useServerGame(worldId);
+  const notifications = useQuery(api.zaraInit.getNotifications, {worldId: worldId});
+
+  useEffect(() => {
+    if (notifications){
+      for (const notification of notifications) {
+        // toast
+        notificationToast(notification.message);
+      }
+      // clear notifications
+      markNotificationsAsRead({
+        notificationIds: notifications.map((n) => n._id),
+      });
+    }
+  }, [notifications]);
 
   // Send a periodic heartbeat to our world to keep it alive.
   useWorldHeartbeat();
@@ -36,17 +53,26 @@ export default function Game() {
   const { historicalTime, timeManager } = useHistoricalTime(worldState?.engine);
 
   if (!worldId || !engineId || !game) {
+    setActiveGame(false);
     return null;
+  } else {
+    setActiveGame(true);
   }
+
   return (
     <>
       {SHOW_DEBUG_UI && <DebugTimeManager timeManager={timeManager} width={200} height={100} />}
-      <div className="mx-auto w-full max-w mt-7 grid grid-rows-[240px_1fr] lg:grid-rows-[1fr] lg:grid-cols-[1fr_auto] lg:h-[700px] max-w-[1400px] min-h-[480px] game-frame">
+      <div className={`
+        mx-auto w-full h-full mt-1 sm:mt-1 grid 
+        lg:grid-rows-[1fr] lg:grid-cols-[1fr_auto]
+        max-h-full max-w-screen game-frame
+        ${selectedElement ? 'grid-rows-[0px_1fr]' : 'grid-rows-[1fr_180px]'}
+      `}>
+        <VictoryBanner gameStatus={worldStatus}/>
         {/* Game area */}
         <div className="relative overflow-hidden bg-brown-900" ref={gameWrapperRef}>
           <div className="absolute inset-0">
             <div className="container">
-            <VictoryBanner gameStatus={worldStatus.status}/>
               <Stage width={width} height={height} options={{ backgroundColor: 0x7ab5ff }}>
                 {/* Re-propagate context because contexts are not shared between renderers.
 https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
@@ -66,7 +92,14 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
           </div>
         </div>
         {/* Right column area */}
-        <div className="flex flex-col overflow-y-auto shrink-0 px-4 py-6 sm:px-6 lg:w-96 xl:pr-6 bg-brown-800 text-brown-100">
+        <div className={`
+          flex flex-col shrink-0 px-4
+          py-6 sm:px-6 lg:w-96 xl:pr-6 border-t-8
+          lg:border-t-0 lg:border-l-8 border-brown-900 
+          bg-brown-800 text-brown-100
+          h-full
+          overflow-y-scroll
+          `}>
           <PlayerDetails
             worldId={worldId}
             engineId={engineId}

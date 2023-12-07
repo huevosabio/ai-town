@@ -25,6 +25,8 @@ import { internal } from '../_generated/api';
 import { HistoricalObject } from '../engine/historicalObject';
 import { AgentDescription, serializedAgentDescription } from './agentDescription';
 import { parseMap, serializeMap } from '../util/object';
+import { checkGameEndingConditions, markPlayersAsLeft } from './zaranovaLogic';
+import { SerializedPlayer } from './player';
 
 const gameState = v.object({
   world: v.object(serializedWorld),
@@ -248,10 +250,12 @@ export class Game extends AbstractGame {
       throw new Error(`No world found with id ${worldId}`);
     }
     const newWorld = diff.world;
+    let removedPlayers: SerializedPlayer[] = []
     // Archive newly deleted players, conversations, and agents.
     for (const player of existingWorld.players) {
       if (!newWorld.players.some((p) => p.id === player.id)) {
         await ctx.db.insert('archivedPlayers', { worldId, ...player });
+        removedPlayers.push(player);
       }
     }
     for (const conversation of existingWorld.conversations) {
@@ -339,6 +343,10 @@ export class Game extends AbstractGame {
     for (const operation of diff.agentOperations) {
       await runAgentOperation(ctx, operation.name, operation.args);
     }
+    // mark removed players as left
+    await markPlayersAsLeft(ctx, worldId, removedPlayers);
+    // Check game ending conditions.
+    await checkGameEndingConditions(ctx, newWorld.players, worldId);
   }
 }
 

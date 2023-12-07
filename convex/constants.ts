@@ -3,7 +3,7 @@ export const WORLD_HEARTBEAT_INTERVAL = 60 * 1000;
 
 export const MAX_STEP = 10 * 60 * 1000;
 export const TICK = 16;
-export const STEP_INTERVAL = 1000;
+export const STEP_INTERVAL = 10;
 
 export const PATHFINDING_TIMEOUT = 60 * 1000;
 export const PATHFINDING_BACKOFF = 1000;
@@ -13,7 +13,7 @@ export const TYPING_TIMEOUT = 15 * 1000;
 export const COLLISION_THRESHOLD = 0.75;
 
 // How many human players can be in a world at once.
-export const MAX_HUMAN_PLAYERS = 8;
+export const MAX_HUMAN_PLAYERS = 4;
 
 // Don't talk to anyone for 15s after having a conversation.
 export const CONVERSATION_COOLDOWN = 15000;
@@ -43,8 +43,16 @@ export const MAX_CONVERSATION_MESSAGES = 8;
 // once we can await on an input being processed.
 export const INPUT_DELAY = 1000;
 
+// How many memories to get from the agent's memory.
+// This is over-fetched by 10x so we can prioritize memories by more than relevance.
+export function NUM_MEMORIES_TO_SEARCH() {
+  return Number(process.env.NUM_MEMORIES_TO_SEARCH) || 3;
+}
+
 // Timeout a request to the conversation layer after a minute.
-export const ACTION_TIMEOUT = 60 * 1000;
+export function ACTION_TIMEOUT() {
+  return Number(process.env.ACTION_TIMEOUT) || 60 * 1000;
+}
 
 // Wait for at least two seconds before sending another message.
 export const MESSAGE_COOLDOWN = 2000;
@@ -56,7 +64,7 @@ export const AGENT_WAKEUP_THRESHOLD = 1000;
 export const VACUUM_MAX_AGE = 2 * 7 * 24 * 60 * 60 * 1000;
 export const DELETE_BATCH_SIZE = 64;
 
-export const HUMAN_IDLE_TOO_LONG = 50 * 60 * 1000;
+export const HUMAN_IDLE_TOO_LONG = 5 * 60 * 1000;
 
 export const ACTIVITIES = [
   { description: 'reading a book', emoji: '📖', duration: 60_000 },
@@ -69,3 +77,17 @@ export const ENGINE_ACTION_DURATION = 30000;
 export const MEMORY_LOOKBACK = 10;
 
 export const DEFAULT_NUM_AGENTS = 4;
+
+export const AGENTS_PER_PLAYER = 3;
+
+export const CODES_PER_PLAYER = 1;
+
+export const THINKING_BUBBLE_ENABLED = false;
+
+export const NOTIFICATION_EXPIRY = 60 * 1000;
+
+export const MAX_INVITE_DISTANCE = 10;
+
+export const MAX_WANDER_DISTANCE = 10;
+
+export const EAVESDROP_RADIUS = 3;
