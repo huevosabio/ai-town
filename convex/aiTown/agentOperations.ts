@@ -94,6 +94,13 @@ export const agentGenerateMessage = internalAction({
       args.playerId as GameId<'players'>,
       args.otherPlayerId as GameId<'players'>,
     );
+    await ctx.runAction(internal.aiTown.agent.agentOverheardMessages, {
+      worldId: args.worldId,
+      conversationId: args.conversationId,
+      playerId: args.playerId,
+      text: content,
+      messageUuid: args.messageUuid
+    });
     await ctx.runMutation(internal.aiTown.agent.agentSendMessage, {
       worldId: args.worldId,
       conversationId: args.conversationId,

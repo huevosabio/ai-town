@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery, useAction } from 'convex/react';
 import { KeyboardEvent, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
@@ -24,6 +24,7 @@ export function MessageInput({
   const inputRef = useRef<HTMLParagraphElement>(null);
   const inflightUuid = useRef<string | undefined>();
   const writeMessage = useMutation(api.messages.writeMessage);
+  const propagateToEavesDroppers = useAction(api.messages.propagateToEavesDroppers);
   const startTyping = useSendInput(engineId, 'startTyping');
   const currentlyTyping = conversation.isTyping;
 
@@ -71,6 +72,13 @@ export function MessageInput({
       conversationId: conversation.id,
       text,
       messageUuid,
+    });
+    await propagateToEavesDroppers({
+      worldId,
+      conversationId: conversation.id,
+      messageUuid,
+      playerId: humanPlayer.id,
+      text
     });
   };
   return (

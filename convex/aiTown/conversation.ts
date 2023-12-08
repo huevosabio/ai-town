@@ -4,7 +4,7 @@ import { conversationId, playerId } from './ids';
 import { Player } from './player';
 import { inputHandler } from './inputHandler';
 
-import { TYPING_TIMEOUT, CONVERSATION_DISTANCE } from '../constants';
+import { TYPING_TIMEOUT, CONVERSATION_DISTANCE, EAVESDROP_RADIUS} from '../constants';
 import { distance, normalize, vector } from '../util/geometry';
 import { Point } from '../util/types';
 import { Game } from './game';
@@ -27,9 +27,10 @@ export class Conversation {
   };
   numMessages: number;
   participants: Map<GameId<'players'>, ConversationMembership>;
+  eavesdroppers: GameId<'players'>[];
 
   constructor(serialized: SerializedConversation) {
-    const { id, creator, created, isTyping, lastMessage, numMessages, participants } = serialized;
+    const { id, creator, created, isTyping, lastMessage, numMessages, participants, eavesdroppers } = serialized;
     this.id = parseGameId('conversations', id);
     this.creator = parseGameId('players', creator);
     this.created = created;
@@ -44,6 +45,7 @@ export class Conversation {
     };
     this.numMessages = numMessages;
     this.participants = parseMap(participants, ConversationMembership, (m) => m.playerId);
+    this.eavesdroppers = [];
   }
 
   tick(game: Game, now: number) {
@@ -117,6 +119,9 @@ export class Conversation {
         player2.facing.dy = -v.dy;
       }
     }
+
+    // update eavesdroppers
+    this.eavesdroppers = this.findEavesdroppers(game);
   }
 
   static start(game: Game, now: number, player: Player, invitee: Player) {
@@ -136,18 +141,21 @@ export class Conversation {
     }
     const conversationId = game.allocId('conversations');
     console.log(`Creating conversation ${conversationId}`);
+    const conversation = new Conversation({
+      id: conversationId,
+      created: now,
+      creator: player.id,
+      numMessages: 0,
+      participants: [
+        { playerId: player.id, invited: now, status: { kind: 'walkingOver' } },
+        { playerId: invitee.id, invited: now, status: { kind: 'invited' } },
+      ],
+      eavesdroppers: [],
+    });
+    conversation.eavesdroppers = conversation.findEavesdroppers(game);
     game.world.conversations.set(
       conversationId,
-      new Conversation({
-        id: conversationId,
-        created: now,
-        creator: player.id,
-        numMessages: 0,
-        participants: [
-          { playerId: player.id, invited: now, status: { kind: 'walkingOver' } },
-          { playerId: invitee.id, invited: now, status: { kind: 'invited' } },
-        ],
-      }),
+      conversation,
     );
     return { conversationId };
   }
@@ -218,8 +226,29 @@ export class Conversation {
     this.stop(game, now, 'left');
   }
 
+  findEavesdroppers(game: Game) {
+    // finds eavesdroppers for this conversation
+    // based on the distance from the conversation
+    const [playerId1, playerId2] = [...this.participants.keys()];
+    const player1 = game.world.players.get(playerId1)!;
+    const player2 = game.world.players.get(playerId2)!;
+    const midpoint = {
+      x: (player1.position.x + player2.position.x) / 2,
+      y: (player1.position.y + player2.position.y) / 2,
+    };
+    const eavesdroppers = [...game.world.players.values()].filter((p) => {
+      if (p.id === playerId1 || p.id === playerId2) {
+        return false;
+      }
+      const distanceFromConversation = distance(p.position, midpoint);
+      return distanceFromConversation < EAVESDROP_RADIUS;
+    });
+    return eavesdroppers.map((p) => p.id);
+  }
+
+
   serialize(): SerializedConversation {
-    const { id, creator, created, isTyping, lastMessage, numMessages, participants } = this;
+    const { id, creator, created, isTyping, lastMessage, numMessages, participants, eavesdroppers } = this;
     return {
       id,
       creator,
@@ -228,6 +257,7 @@ export class Conversation {
       lastMessage,
       numMessages,
       participants: serializeMap(this.participants),
+      eavesdroppers,
     };
   }
 }
@@ -251,6 +281,7 @@ export const serializedConversation = {
   ),
   numMessages: v.number(),
   participants: v.array(v.object(serializedConversationMembership)),
+  eavesdroppers: v.array(playerId),
 };
 export type SerializedConversation = ObjectType<typeof serializedConversation>;
 

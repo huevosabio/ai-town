@@ -1,14 +1,32 @@
 ## This is Ramon's log
 
+- [2023-12-08 11:47:41] I can't use fetch on mutation contexts :/, going to have to reshuffle how the remembering works
+- [2023-12-08 11:08:48] whenever someone accepts a conversation, I should choose a midpoint and make them both walk there, including human players
+- [2023-12-07 14:39:29] I want to set "remember conversation" for conversations in which you've 
+  - I could set a flag as for the other cases, but what happens if a player goes in and out of eaves dropping, would this mean that you have a bunhc of reflections?
+  - I could just store it as a forced memory like an event, probably good! If so, then it will be added as a core memory. This may inflate a lot of the memories but I don't mind that (I think?)
+  - or maybe just write them as events at the time we send the event
+- [2023-12-07 13:22:42] I think there is an issue when you are in a conversation _and_ have a remember process ongoing, need to check [done]
+  - the issue is that the functions don't work for 0314
+- [2023-12-07 12:28:11] I found a bug where the memory embeddings were not stored properly, fixed
+  - gpt-4-0314 is painfully slow
+- [2023-12-07 10:44:20] prompt work: I need to make sure that eavesdropping plays a role and that plans are updated in very terse manner
+  - 
+- [2023-12-07 09:52:35] I am going to prepend who is within eavesdropping distance when generating a message [done]
+  - I need to improve the prompting because eavesdropping does not seem to play a big role yet
+- [2023-12-07 09:13:38] now I need to be able to list only conversations in which the player was eavesdropping [done]
+  - At this point the eavesdropping feature on the human side is done
+- [2023-12-07 07:44:56] adding eavesdroppers to message and conversation schemas [done]
 - [2023-12-05 10:18:15] I am now going to implement eavesdropping dynamic, this has multiple parts
   - reqs:
-    - when a player is too close to an agent that is in a conversation, the agent notices that the player eaves dropped
+    - when a player is too close to an agent that is in a conversation, the agent notices that the player eaves dropped [done]
     - when an agent is too close to a player that is in a conversation, the messages that are stated during the conversation get stored as memories
     - when an agent notices an eavesdropper, an exclamation mark pops in its head
-    - when a human is within eavesdropping radius, he can read the conversation
-    - agents that are in a conversation get a list of characters that are within eavesdropping distance
+    - when a human is within eavesdropping radius, he can read the conversation [done]
+    - agents that are in a conversation get a list of characters that are within eavesdropping distance [done]
   - implementation:
-    - I think this can be handled by the conversation object, it can keep track of who is near enough, and broadcast the messages, and ask to do "reflections" when a conversation needs to be remembered
+    - I think this can be handled by the conversation object, it can keep track of who is near enough, and broadcast the messages [done]
+    - ask to do "reflections" when a conversation needs to be remembered
     - It can also trigger the events to have agents notice eavesdropping, or prepend eavesdropping
     - at every tick, basically keep track of who is within the eaves dropping radius
     - I think I should add "eavesdroppers" for each message, so that for a conversationId i can pull only the messages that a given player was able to listen

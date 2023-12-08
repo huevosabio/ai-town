@@ -17,6 +17,7 @@ export default defineSchema({
     author: playerId,
     text: v.string(),
     worldId: v.id('worlds'),
+    eavesdroppers: v.array(playerId),
   })
     .index('conversationId', ['worldId', 'conversationId'])
     .index('messageUuid', ['conversationId', 'messageUuid']),

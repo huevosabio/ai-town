@@ -19,11 +19,12 @@ import {
   MAX_INVITE_DISTANCE
 } from '../constants';
 import { FunctionArgs } from 'convex/server';
-import { MutationCtx, internalMutation, internalQuery } from '../_generated/server';
+import { MutationCtx, internalMutation, internalQuery, internalAction} from '../_generated/server';
 import { distance } from '../util/geometry';
 import { internal } from '../_generated/api';
 import { movePlayer } from './movement';
 import { insertInput } from './insertInput';
+import { rememberOverheardMessage } from '../agent/memory';
 
 export class Agent {
   id: GameId<'agents'>;
@@ -428,12 +429,20 @@ export const agentSendMessage = internalMutation({
     operationId: v.string(),
   },
   handler: async (ctx, args) => {
+    // get the world
+    const world = (await ctx.db.get(args.worldId))!;
+    // get the conversation
+    const conversation = world.conversations.find((c) => c.id === args.conversationId);
+    const participantsIds = conversation?.participants.map((p) => p.playerId) ?? [];
+    const author = args.playerId;
+    const otherPlayerId = participantsIds.find((id) => id !== author);
     await ctx.db.insert('messages', {
       conversationId: args.conversationId,
-      author: args.playerId,
+      author,
       text: args.text,
       messageUuid: args.messageUuid,
       worldId: args.worldId,
+      eavesdroppers: conversation?.eavesdroppers ?? [],
     });
     await insertInput(ctx, args.worldId, 'agentFinishSendingMessage', {
       conversationId: args.conversationId,
@@ -480,5 +489,47 @@ export const findConversationCandidate = internalQuery({
     // Sort by distance and take the nearest candidate.
     candidates.sort((a, b) => distance(a.position, position) - distance(b.position, position));
     return candidates[0]?.id;
+  },
+});
+
+export const agentOverheardMessages = internalAction({
+  args: {
+    worldId: v.id('worlds'),
+    conversationId,
+    playerId,
+    text: v.string(),
+    messageUuid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // save message as eavesdrop to all relevant agents
+    // get the world
+    const {world} = (await ctx.runQuery(internal.agent.memory.loadWorld, { worldId: args.worldId }))!;
+    // get the conversation
+    const conversation = world.conversations.find((c) => c.id === args.conversationId);
+    const participantsIds = conversation?.participants.map((p) => p.playerId) ?? [];
+    const author = args.playerId;
+    const otherPlayerId = participantsIds.find((id) => id !== author);
+    // for each eavesdropper, remember the message as a memory
+    for (const eavesdropperId of conversation?.eavesdroppers ?? []) {
+      // load the agent if it is not human
+      const eavesdropperAgent = world.agents.find((a) => a.playerId === eavesdropperId);
+      const promises = [];
+      if (eavesdropperAgent) {
+        // remember the message
+        promises.push(rememberOverheardMessage(
+          ctx,
+          args.worldId,
+          eavesdropperAgent.id as GameId<'agents'>,
+          eavesdropperId as GameId<'players'>,
+          author as GameId<'players'>,
+          otherPlayerId as GameId<'players'>,
+          args.conversationId as GameId<'conversations'>,
+          args.text,
+        ));
+      }
+      await Promise.all(promises);
+      // you need to send a rememberEvent with the participants but also with the message
+      // I need to alter remember event
+    }
   },
 });

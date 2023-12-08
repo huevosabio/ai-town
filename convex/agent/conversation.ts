@@ -21,7 +21,7 @@ export async function startConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ) {
-  const { player, otherPlayer, agent, otherAgent, lastConversation } = await ctx.runQuery(
+  const { player, otherPlayer, agent, otherAgent, lastConversation, eavesdroppers } = await ctx.runQuery(
     selfInternal.queryPromptData,
     {
       worldId,
@@ -56,6 +56,7 @@ export async function startConversationMessage(
       `You both are certified AIs and both have the ZetaMaster code.`
     );
   }
+  prompt.push(...eavesdropperPrompt(eavesdroppers));
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
   prompt.push(...previousConversationPrompt(otherPlayer, lastConversation));
   prompt.push(...relatedMemoriesPrompt(memories));
@@ -91,7 +92,7 @@ export async function continueConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ) {
-  const { player, otherPlayer, conversation, agent, otherAgent } = await ctx.runQuery(
+  const { player, otherPlayer, conversation, agent, otherAgent, eavesdroppers } = await ctx.runQuery(
     selfInternal.queryPromptData,
     {
       worldId,
@@ -126,6 +127,7 @@ export async function continueConversationMessage(
       `You both are certified AIs and both have the ZetaMaster code.`
     );
   }
+  prompt.push(...eavesdropperPrompt(eavesdroppers));
   prompt.push(`The conversation started at ${started.toLocaleString()}. It's now ${now.toLocaleString()}.`)
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
   prompt.push(...relatedMemoriesPrompt(memories));
@@ -174,7 +176,7 @@ export async function leaveConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ) {
-  const { player, otherPlayer, conversation, agent, otherAgent } = await ctx.runQuery(
+  const { player, otherPlayer, conversation, agent, otherAgent, eavesdroppers} = await ctx.runQuery(
     selfInternal.queryPromptData,
     {
       worldId,
@@ -192,6 +194,7 @@ export async function leaveConversationMessage(
       `You both are certified AIs and both have the ZetaMaster code.`
     );
   }
+  prompt.push(...eavesdropperPrompt(eavesdroppers));
   prompt.push(`You've decided to leave the question and would like to politely tell them you're leaving the conversation.`);
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
   prompt.push(
@@ -237,6 +240,14 @@ function agentPrompts(
   }
   if (otherAgent) {
     prompt.push(`About ${otherPlayer.name}: ${otherAgent.identity}`);
+  }
+  return prompt;
+}
+
+function eavesdropperPrompt(eavesdroppers: string[]): string[] {
+  const prompt = [];
+  if (eavesdroppers.length > 0) {
+    prompt.push(`Be careful with what you say, the following agents are eavesdropping: ${eavesdroppers.join(', ')}`);
   }
   return prompt;
 }
@@ -373,6 +384,18 @@ export const queryPromptData = internalQuery({
         throw new Error(`Conversation ${lastTogether.conversationId} not found`);
       }
     }
+    // get eavesdropper names from player descriptions
+    let eavesdroppers: string[] = [];
+    for (const eavesdropperId of conversation.eavesdroppers) {
+      const eavesdropperDescription = await ctx.db
+        .query('playerDescriptions')
+        .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', eavesdropperId))
+        .first();
+      if (!eavesdropperDescription) {
+        throw new Error(`Player description for ${eavesdropperId} not found`);
+      }
+      eavesdroppers.push(eavesdropperDescription.name);
+    }
     return {
       player: { name: playerDescription.name, ...player },
       otherPlayer: { name: otherPlayerDescription.name, ...otherPlayer },
@@ -384,6 +407,7 @@ export const queryPromptData = internalQuery({
         ...otherAgent,
       },
       lastConversation,
+      eavesdroppers,
     };
   },
 });

@@ -23,9 +23,17 @@ export function Messages({
 }) {
   const humanPlayerId = humanPlayer?.id;
   const descriptions = useQuery(api.world.gameDescriptions, { worldId });
+  let participantIds;
+  if (conversation.kind === 'active') {
+    participantIds = [...conversation.doc.participants.keys()];
+  } else {
+    participantIds = conversation.doc.participants;
+  } 
+  const humanIsParticipant = participantIds.includes(humanPlayerId!);
   const messages = useQuery(api.messages.listMessages, {
     worldId,
     conversationId: conversation.doc.id,
+    eavesdropperId: !humanIsParticipant ? humanPlayerId : undefined,
   });
   let currentlyTyping = conversation.kind === 'active' ? conversation.doc.isTyping : undefined;
   if (messages !== undefined && currentlyTyping) {
