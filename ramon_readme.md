@@ -1,5 +1,6 @@
 ## This is Ramon's log
 
+- [2023-12-10 19:57:54] I've gone through a long tangent and am now adding avatars... :)
 - [2023-12-08 11:47:41] I can't use fetch on mutation contexts :/, going to have to reshuffle how the remembering works
 - [2023-12-08 11:08:48] whenever someone accepts a conversation, I should choose a midpoint and make them both walk there, including human players
 - [2023-12-07 14:39:29] I want to set "remember conversation" for conversations in which you've 

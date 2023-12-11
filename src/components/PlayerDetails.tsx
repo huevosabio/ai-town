@@ -1,4 +1,5 @@
 import { useQuery } from 'convex/react';
+import {useState, useEffect} from 'react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import closeImg from '../../assets/close.svg';
@@ -9,6 +10,11 @@ import { useSendInput } from '../hooks/sendInput';
 import { Player } from '../../convex/aiTown/player';
 import { GameId } from '../../convex/aiTown/ids';
 import { ServerGame } from '../hooks/serverGame';
+import { useAvatar } from '@avatechai/avatars/react'
+import { ThreeJSPlugin } from "@avatechai/avatars/threejs";
+import {
+  defaultAvatarLoaders,
+} from '@avatechai/avatars/default-loaders'
 
 export default function PlayerDetails({
   worldId,
@@ -45,12 +51,22 @@ export default function PlayerDetails({
   );
 
   const playerDescription = playerId && game.playerDescriptions.get(playerId);
+  const [initAvatar, setInitAvatar] = useState(false);
+  const { avatarDisplay, connectAudioContext, connectAudioNode } = useAvatar({
+    avatarId: '4e8b7747-5cf4-4a5c-bddf-4ba8f297666e',
+    // Loader + Plugins
+    avatarLoaders: [ThreeJSPlugin],
+    scale: -0.6,
+    className: "w-full !h-[100px] sm:!h-[300px]",
+    onAvatarLoaded: () => {
+      setInitAvatar(true);
+    },
+  });
 
   const startConversation = useSendInput(engineId, 'startConversation');
   const acceptInvite = useSendInput(engineId, 'acceptInvite');
   const rejectInvite = useSendInput(engineId, 'rejectInvite');
   const leaveConversation = useSendInput(engineId, 'leaveConversation');
-
   if (!playerId) {
     return (
       <div className="h-full text-xl flex text-center items-center p-4">
@@ -174,6 +190,8 @@ export default function PlayerDetails({
         </a>
       )}
       {inConversationWithMe && (
+        <>
+         {avatarDisplay}
         <a
           className={
             'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
@@ -185,6 +203,7 @@ export default function PlayerDetails({
             <span>Leave conversation</span>
           </div>
         </a>
+        </>
       )}
       {haveInvite && (
         <>
@@ -220,15 +239,17 @@ export default function PlayerDetails({
         </div>
       )}
       {!isMe && playerConversation && playerStatus?.kind === 'participating' && (
-        <Messages
-          worldId={worldId}
-          engineId={engineId}
-          inConversationWithMe={inConversationWithMe ?? false}
-          conversation={{ kind: 'active', doc: playerConversation }}
-          humanPlayer={humanPlayer}
-        />
+        <>
+          <Messages
+            worldId={worldId}
+            engineId={engineId}
+            inConversationWithMe={inConversationWithMe ?? false}
+            conversation={{ kind: 'active', doc: playerConversation }}
+            humanPlayer={humanPlayer}
+          />
+        </>
       )}
-      {!playerConversation && previousConversation && (
+            {!playerConversation && previousConversation && (
         <>
           <div className="box">
             <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
