@@ -93,7 +93,7 @@ body {
 
 .bubble {
   border-width: 30px;
-  border-image-source: url(../assets/ui/bubble-left.svg);
+  border-image-source: url(../assets/ui/bubble-left-alt.svg);
   border-image-repeat: stretch;
   border-image-slice: 20%;
 }

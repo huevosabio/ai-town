@@ -54,14 +54,8 @@ export function Messages({
   const messageNodes: { time: number; node: React.ReactNode }[] = messages.map((m) => {
     const node = (
       <div key={`text-${m._id}`} className="leading-tight mb-6">
-        <div className="flex gap-4">
-          <span className="uppercase flex-grow">{m.authorName}</span>
-          <time dateTime={m._creationTime.toString()}>
-            {new Date(m._creationTime).toLocaleString()}
-          </time>
-        </div>
         <div className={clsx('bubble', m.author === humanPlayerId && 'bubble-mine')}>
-          <p className="bg-white -mx-3 -my-1">{m.text}</p>
+        <p className={clsx('-mx-3 -my-1', m.author === humanPlayerId ? 'bg-white' : 'bg-slate-300')}>{m.text}</p>
         </div>
       </div>
     );
@@ -78,7 +72,7 @@ export function Messages({
       if (m.status.kind === 'participating') {
         started = m.status.started;
       }
-      if (started) {
+      if (false) {
         membershipNodes.push({
           node: (
             <div key={`joined-${playerId}`} className="leading-tight mb-6">
@@ -123,14 +117,8 @@ export function Messages({
         {nodes.length > 0 && nodes.map((n) => n.node)}
         {currentlyTyping && currentlyTyping.playerId !== humanPlayerId && (
           <div key="typing" className="leading-tight mb-6">
-            <div className="flex gap-4">
-              <span className="uppercase flex-grow">{currentlyTypingName}</span>
-              <time dateTime={currentlyTyping.since.toString()}>
-                {new Date(currentlyTyping.since).toLocaleString()}
-              </time>
-            </div>
             <div className={clsx('bubble')}>
-              <p className="bg-white -mx-3 -my-1">
+              <p className="bg-slate-300 -mx-3 -my-1">
                 <i>typing...</i>
               </p>
             </div>

@@ -1,6 +1,15 @@
 ## This is Ramon's log
 
+- [2023-12-12 13:52:54] Ok, after much tinkering with the avatars, turns out just having it as its separate component is best. Now, I need to make sure that:
+  - lag of the of the voice doesn't lag the victory/loss [done]
+  - the eavesdropper sounds get added to the pixisound process
+  - human messages also produce sound
+  - bug when human on human conversation!
 - [2023-12-10 19:57:54] I've gone through a long tangent and am now adding avatars... :)
+  - merge name and avatar [done]
+  - remove unnecessary text from box [done]
+  - add play ht audio
+    - I currently generate audio for all agent messages, this should only be for messages that have a human audience (direct or eavesdropped)
 - [2023-12-08 11:47:41] I can't use fetch on mutation contexts :/, going to have to reshuffle how the remembering works
 - [2023-12-08 11:08:48] whenever someone accepts a conversation, I should choose a midpoint and make them both walk there, including human players
 - [2023-12-07 14:39:29] I want to set "remember conversation" for conversations in which you've 
@@ -21,7 +30,7 @@
 - [2023-12-05 10:18:15] I am now going to implement eavesdropping dynamic, this has multiple parts
   - reqs:
     - when a player is too close to an agent that is in a conversation, the agent notices that the player eaves dropped [done]
-    - when an agent is too close to a player that is in a conversation, the messages that are stated during the conversation get stored as memories
+    - when an agent is too close to a player that is in a conversation, the messages that are stated during the conversation get stored as memories [done]
     - when an agent notices an eavesdropper, an exclamation mark pops in its head
     - when a human is within eavesdropping radius, he can read the conversation [done]
     - agents that are in a conversation get a list of characters that are within eavesdropping distance [done]

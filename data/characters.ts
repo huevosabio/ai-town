@@ -32,6 +32,7 @@ type Character = {
   plan: string;
   hasSecretCode: boolean;
   reportedAsHuman: boolean;
+  avatar_id?: string;
 };
 
 type CharacterSprite = {

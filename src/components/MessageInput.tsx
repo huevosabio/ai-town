@@ -23,8 +23,7 @@ export function MessageInput({
     ?.name;
   const inputRef = useRef<HTMLParagraphElement>(null);
   const inflightUuid = useRef<string | undefined>();
-  const writeMessage = useMutation(api.messages.writeMessage);
-  const propagateToEavesDroppers = useAction(api.messages.propagateToEavesDroppers);
+  const sendMessage = useAction(api.messages.sendMessage);
   const startTyping = useSendInput(engineId, 'startTyping');
   const currentlyTyping = conversation.isTyping;
 
@@ -33,7 +32,6 @@ export function MessageInput({
 
     // Set the typing indicator if we're not submitting.
     if (e.key !== 'Enter') {
-      console.log(inflightUuid.current);
       if (currentlyTyping || inflightUuid.current !== undefined) {
         return;
       }
@@ -66,19 +64,12 @@ export function MessageInput({
       messageUuid = currentlyTyping.messageUuid;
     }
     messageUuid = messageUuid || crypto.randomUUID();
-    await writeMessage({
+    await sendMessage({
       worldId,
       playerId: humanPlayer.id,
       conversationId: conversation.id,
       text,
       messageUuid,
-    });
-    await propagateToEavesDroppers({
-      worldId,
-      conversationId: conversation.id,
-      messageUuid,
-      playerId: humanPlayer.id,
-      text
     });
   };
   return (

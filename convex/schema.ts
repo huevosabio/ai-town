@@ -10,6 +10,9 @@ export default defineSchema({
     storageId: v.string(),
     type: v.union(v.literal('background'), v.literal('player')),
   }),
+  audio: defineTable({
+    storageId: v.string()
+  }),
 
   messages: defineTable({
     conversationId,
@@ -18,9 +21,12 @@ export default defineSchema({
     text: v.string(),
     worldId: v.id('worlds'),
     eavesdroppers: v.array(playerId),
+    seen: v.boolean(),
+    audioStorageId: v.optional(v.string()),
   })
     .index('conversationId', ['worldId', 'conversationId'])
-    .index('messageUuid', ['conversationId', 'messageUuid']),
+    .index('messageUuid', ['conversationId', 'messageUuid'])
+    .index('worldConvMessageUuid', ['worldId', 'conversationId', 'messageUuid']),
 
   ...agentTables,
   ...aiTownTables,

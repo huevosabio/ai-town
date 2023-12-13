@@ -1,7 +1,7 @@
 import { useQuery } from 'convex/react';
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useRef} from 'react';
 import { api } from '../../convex/_generated/api';
-import { Id } from '../../convex/_generated/dataModel';
+import { Id, Doc} from '../../convex/_generated/dataModel';
 import closeImg from '../../assets/close.svg';
 import { SelectElement } from './Player';
 import { Messages } from './Messages';
@@ -12,9 +12,7 @@ import { GameId } from '../../convex/aiTown/ids';
 import { ServerGame } from '../hooks/serverGame';
 import { useAvatar } from '@avatechai/avatars/react'
 import { ThreeJSPlugin } from "@avatechai/avatars/threejs";
-import {
-  defaultAvatarLoaders,
-} from '@avatechai/avatars/default-loaders'
+import AudioAvatar from './AudioAvatar';
 
 export default function PlayerDetails({
   worldId,
@@ -35,39 +33,35 @@ export default function PlayerDetails({
   const humanPlayer = players.find((p) => p.human === humanTokenIdentifier);
   const humanConversation = humanPlayer ? game.world.playerConversation(humanPlayer) : undefined;
   // Always select the other player if we're in a conversation with them.
+  let finalPlayerId = playerId;
   if (humanPlayer && humanConversation) {
     const otherPlayerIds = [...humanConversation.participants.keys()].filter(
       (p) => p !== humanPlayer.id,
     );
-    playerId = otherPlayerIds[0];
+    finalPlayerId = otherPlayerIds[0];
   }
 
-  const player = playerId && game.world.players.get(playerId);
+  const player = finalPlayerId && game.world.players.get(finalPlayerId);
   const playerConversation = player && game.world.playerConversation(player);
 
   const previousConversation = useQuery(
     api.world.previousConversation,
-    playerId ? { worldId, playerId } : 'skip',
+    finalPlayerId ? { worldId, playerId: finalPlayerId } : 'skip',
   );
 
-  const playerDescription = playerId && game.playerDescriptions.get(playerId);
-  const [initAvatar, setInitAvatar] = useState(false);
-  const { avatarDisplay, connectAudioContext, connectAudioNode } = useAvatar({
-    avatarId: '4e8b7747-5cf4-4a5c-bddf-4ba8f297666e',
-    // Loader + Plugins
-    avatarLoaders: [ThreeJSPlugin],
-    scale: -0.6,
-    className: "w-full !h-[100px] sm:!h-[300px]",
-    onAvatarLoaded: () => {
-      setInitAvatar(true);
-    },
+  const playerDescription = finalPlayerId && game.playerDescriptions.get(finalPlayerId);
+  // last message only for human conversations
+  const conversationId = humanConversation?.id || playerConversation?.id;
+  const lastMessage = useQuery(api.messages.lastMessageAudio, {
+    worldId,
+    conversationId: conversationId ? conversationId : 'skip',
   });
 
   const startConversation = useSendInput(engineId, 'startConversation');
   const acceptInvite = useSendInput(engineId, 'acceptInvite');
   const rejectInvite = useSendInput(engineId, 'rejectInvite');
   const leaveConversation = useSendInput(engineId, 'leaveConversation');
-  if (!playerId) {
+  if (!finalPlayerId) {
     return (
       <div className="h-full text-xl flex text-center items-center p-4">
         Click on an agent on the map to see chat history.
@@ -88,11 +82,11 @@ export default function PlayerDetails({
 
   const humanStatus =
     humanPlayer && humanConversation && humanConversation.participants.get(humanPlayer.id)?.status;
-  const playerStatus = playerConversation && playerConversation.participants.get(playerId)?.status;
+  const playerStatus = playerConversation && playerConversation.participants.get(finalPlayerId)?.status;
 
   const haveInvite = sameConversation && humanStatus?.kind === 'invited';
   const waitingForAccept =
-    sameConversation && playerConversation.participants.get(playerId)?.status.kind === 'invited';
+    sameConversation && playerConversation.participants.get(finalPlayerId)?.status.kind === 'invited';
   const waitingForNearby =
     sameConversation && playerStatus?.kind === 'walkingOver' && humanStatus?.kind === 'walkingOver';
 
@@ -102,14 +96,14 @@ export default function PlayerDetails({
     humanStatus?.kind === 'participating';
 
   const onStartConversation = async () => {
-    if (!humanPlayer || !playerId) {
+    if (!humanPlayer || !finalPlayerId) {
       return;
     }
     console.log(`Starting conversation`);
-    await toastOnError(startConversation({ playerId: humanPlayer.id, invitee: playerId }));
+    await toastOnError(startConversation({ playerId: humanPlayer.id, invitee: finalPlayerId }));
   };
   const onAcceptInvite = async () => {
-    if (!humanPlayer || !humanConversation || !playerId) {
+    if (!humanPlayer || !humanConversation || !finalPlayerId) {
       return;
     }
     await toastOnError(
@@ -191,7 +185,7 @@ export default function PlayerDetails({
       )}
       {inConversationWithMe && (
         <>
-         {avatarDisplay}
+        <AudioAvatar audioUrl={lastMessage?.audioUrl} avatarId={playerDescription?.avatar_id} />
         <a
           className={
             'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +

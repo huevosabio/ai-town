@@ -25,6 +25,7 @@ import { internal } from '../_generated/api';
 import { movePlayer } from './movement';
 import { insertInput } from './insertInput';
 import { rememberOverheardMessage } from '../agent/memory';
+import {textToSpeech} from '../util/textToSpeech';
 
 export class Agent {
   id: GameId<'agents'>;
@@ -427,6 +428,7 @@ export const agentSendMessage = internalMutation({
     messageUuid: v.string(),
     leaveConversation: v.boolean(),
     operationId: v.string(),
+    audioStorageId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // get the world
@@ -443,6 +445,8 @@ export const agentSendMessage = internalMutation({
       messageUuid: args.messageUuid,
       worldId: args.worldId,
       eavesdroppers: conversation?.eavesdroppers ?? [],
+      seen: false,
+      audioStorageId: args.audioStorageId
     });
     await insertInput(ctx, args.worldId, 'agentFinishSendingMessage', {
       conversationId: args.conversationId,
@@ -530,6 +534,54 @@ export const agentOverheardMessages = internalAction({
       await Promise.all(promises);
       // you need to send a rememberEvent with the participants but also with the message
       // I need to alter remember event
+    }
+  },
+});
+
+export const getMessageAudio = internalAction({
+  args: {
+    worldId: v.id('worlds'),
+    conversationId,
+    playerId,
+    text: v.string(),
+    messageUuid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // get conversation participants
+    const {world} = (await ctx.runQuery(internal.agent.memory.loadWorld, { worldId: args.worldId }))!;
+    const conversation = world.conversations.find((c) => c.id === args.conversationId);
+    const otherPlayerId = conversation?.participants.find((p) => p.playerId !== args.playerId)?.playerId;
+    const otherPlayer = world.players.find((p) => p.id === otherPlayerId);
+    if (!otherPlayerId || !otherPlayer?.human) {
+      // don't generate audio for non-human audiences
+      return {audioStorageId: undefined};
+    }
+    // fetches the message audio
+    const audio = await textToSpeech(args.text);
+    // stores the message as an audio file
+    const audioStorageId = await ctx.storage.store(audio);
+    return { audioStorageId };
+  },
+});
+
+export const patchMessageWithAudio = internalMutation({
+  args: {
+    worldId: v.id('worlds'),
+    conversationId,
+    messageUuid: v.string(),
+    audioStorageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const message = await ctx.db
+      .query('messages')
+      .withIndex('worldConvMessageUuid', (q) =>
+        q.eq('worldId', args.worldId).eq('conversationId', args.conversationId).eq('messageUuid', args.messageUuid),
+      )
+      .first();
+    if (message){
+      await ctx.db.patch(message._id, {
+        audioStorageId: args.audioStorageId,
+      });
     }
   },
 });

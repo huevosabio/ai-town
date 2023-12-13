@@ -177,6 +177,8 @@ export const agentInputs = {
         description.identity,
         args.hasSecretCode ?? false,
         false,
+        undefined,
+        description.avatar_id,
       );
       const agentId = game.allocId('agents');
       game.world.agents.set(

@@ -179,6 +179,7 @@ export class Player {
     hasSecretCode: boolean,
     reportedAsHuman: boolean,
     tokenIdentifier?: string,
+    avatar_id?: string,
   ) {
     if (tokenIdentifier) {
       let numHumans = 0;
@@ -229,6 +230,7 @@ export class Player {
         character,
         description,
         name,
+        avatar_id,
       }),
     );
     game.descriptionsModified = true;
@@ -279,6 +281,7 @@ export const playerInputs = {
       hasSecretCode: v.boolean(),
       reportedAsHuman: v.boolean(),
       tokenIdentifier: v.optional(v.string()),
+      avatar_id: v.optional(v.string()),
     },
     handler: (game, now, args) => {
       Player.join(
@@ -290,6 +293,7 @@ export const playerInputs = {
         args.hasSecretCode,
         args.reportedAsHuman,
         args.tokenIdentifier,
+        args.avatar_id,
         );
       return null;
     },
