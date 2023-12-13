@@ -16,7 +16,8 @@ import {
   MIDPOINT_THRESHOLD,
   PLAYER_CONVERSATION_COOLDOWN,
   MEMORY_LOOKBACK,
-  MAX_INVITE_DISTANCE
+  MAX_INVITE_DISTANCE,
+  EAVESDROP_EXPIRY
 } from '../constants';
 import { FunctionArgs } from 'convex/server';
 import { MutationCtx, internalMutation, internalQuery, internalAction} from '../_generated/server';
@@ -552,7 +553,9 @@ export const getMessageAudio = internalAction({
     const conversation = world.conversations.find((c) => c.id === args.conversationId);
     const otherPlayerId = conversation?.participants.find((p) => p.playerId !== args.playerId)?.playerId;
     const otherPlayer = world.players.find((p) => p.id === otherPlayerId);
-    if (!otherPlayerId || !otherPlayer?.human) {
+    const humanEavesdroppers = world.players.filter((p) => conversation?.eavesdroppers.includes(p.id) &&  p.human);
+    const isHumanAudience = humanEavesdroppers || (otherPlayer && otherPlayer.human);
+    if (!isHumanAudience) {
       // don't generate audio for non-human audiences
       return {audioStorageId: undefined};
     }
@@ -560,9 +563,50 @@ export const getMessageAudio = internalAction({
     const audio = await textToSpeech(args.text);
     // stores the message as an audio file
     const audioStorageId = await ctx.storage.store(audio);
+    const audioStorageUrl = (await ctx.storage.getUrl(audioStorageId))!;
+
+    // pushes to eavesdrop feed of each human eavesdropper
+    for (const eavesdropper of humanEavesdroppers) {
+      if (!eavesdropper.human) {
+        // this is redundant, but type checker complains otherwise
+        continue;
+      }
+      await ctx.runMutation(internal.aiTown.agent.pushToEavesdropFeed, {
+        worldId: args.worldId,
+        tokenId: eavesdropper.human,
+        audioUrl: audioStorageUrl,
+      });
+    }
+
     return { audioStorageId };
   },
 });
+
+export const pushToEavesdropFeed = internalMutation({
+  args: {
+    worldId: v.id('worlds'),
+    tokenId: v.string(),
+    audioUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // get user id
+    const user = (await ctx.db
+      .query('users')
+      .withIndex('byTokenId', (q) => q.eq('tokenId', args.tokenId))
+      .first())!;
+    // insert into user feed
+    const now = Date.now();
+    await ctx.db.insert('eavesdropFeed', {
+      worldId: args.worldId,
+      userId: user._id,
+      audioUrl: args.audioUrl,
+      timestamp: now,
+      isRead: false,
+      expires: now + EAVESDROP_EXPIRY
+    });
+  }
+});
+
 
 export const patchMessageWithAudio = internalMutation({
   args: {

@@ -5,6 +5,7 @@ import { conversationId, playerId } from './aiTown/ids';
 import {agentOverheardMessages} from './aiTown/agent';
 import { api, internal } from './_generated/api';
 import { createLanguageService } from 'typescript';
+import {getUser} from './zaraInit'
 
 export const listMessages = query({
   args: {
@@ -145,5 +146,44 @@ export const markMessageSeen = mutation({
       throw new Error(`Message not found: ${args.messageUuid}`);
     }
     await ctx.db.patch(message._id, { seen: true });
+  }
+});
+
+export const getEavesDropFeed = query({
+  args: {
+    worldId: v.id('worlds'),
+  },
+  handler: async (ctx, args) => {
+    // get requester token id
+    const identity = (await ctx.auth.getUserIdentity())!;
+    const user = (await ctx.db
+      .query('users')
+      .withIndex('byTokenId', (q) => q.eq('tokenId', identity.tokenIdentifier))
+      .first())!;
+    // now fetch unexpired eavesdropped audios
+    const now = Date.now();
+    const eavesdroppedAudios = await ctx.db
+      .query('eavesdropFeed')
+      .withIndex('worldUserId', (q) => q.eq('worldId', args.worldId).eq('userId', user._id))
+      .filter((q) => q.eq(q.field('isRead'), false))
+      .filter((q) => q.gt(q.field('expires'), now))
+      .collect();
+    return eavesdroppedAudios;
+  }
+});
+
+export const markEavesdroppedAudioRead = mutation({
+  args: {
+    eavesdroppedAudioIds: v.array(v.id('eavesdropFeed')),
+  },
+  handler: async (ctx, args) => {
+    // get authed user
+    const {user} = await getUser(ctx);
+    if (!user) {
+      return null;
+    }
+    for (const eavesdroppedAudioId of args.eavesdroppedAudioIds) {
+      await ctx.db.patch(eavesdroppedAudioId, { isRead: true });
+    }
   }
 });

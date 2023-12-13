@@ -1,10 +1,12 @@
 ## This is Ramon's log
 
+- [2023-12-13 10:36:57] Eavesdropped audio works!!! It has some issues though:
+  - how do you manage to not overlap the messages within the same conversation?
 - [2023-12-12 13:52:54] Ok, after much tinkering with the avatars, turns out just having it as its separate component is best. Now, I need to make sure that:
   - lag of the of the voice doesn't lag the victory/loss [done]
-  - the eavesdropper sounds get added to the pixisound process
-  - human messages also produce sound
-  - bug when human on human conversation!
+  - the eavesdropper sounds get added to the pixisound process [done]
+  - human messages also produce sound [done]
+  - bug when human on human conversation! [done]
 - [2023-12-10 19:57:54] I've gone through a long tangent and am now adding avatars... :)
   - merge name and avatar [done]
   - remove unnecessary text from box [done]

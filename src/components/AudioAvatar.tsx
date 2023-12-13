@@ -18,7 +18,8 @@ export default function AudioAvatar({ audioUrl, avatarId }: AudioAvatarProps) {
     avatarId,
     avatarLoaders: [ThreeJSPlugin],
     scale: -0.6,
-    className: "box bg-brown-700 w-full !h-[100px] sm:!h-[300px]",
+    infoBox: false,
+    className: "bg-brown-700 !h-[100px] sm:!h-[300px]",
     onAvatarLoaded: () => {
       setInitAvatar(true);
     },
@@ -69,5 +70,11 @@ export default function AudioAvatar({ audioUrl, avatarId }: AudioAvatarProps) {
     }
   }, [audioUrl]);
 
-  return avatarDisplay;
+  return (
+    <>
+      <div className="box">
+        {avatarDisplay}
+      </div>
+    </>
+  );
 }
