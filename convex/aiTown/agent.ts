@@ -550,6 +550,10 @@ export const getMessageAudio = internalAction({
   handler: async (ctx, args) => {
     // get conversation participants
     const {world} = (await ctx.runQuery(internal.agent.memory.loadWorld, { worldId: args.worldId }))!;
+    const playerDescription = (await ctx.runQuery(
+      internal.aiTown.agent.loadPlayerDescriptionFromId,
+      {worldId: args.worldId, playerId: args.playerId}
+    ))!;
     const conversation = world.conversations.find((c) => c.id === args.conversationId);
     const otherPlayerId = conversation?.participants.find((p) => p.playerId !== args.playerId)?.playerId;
     const otherPlayer = world.players.find((p) => p.id === otherPlayerId);
@@ -560,7 +564,7 @@ export const getMessageAudio = internalAction({
       return {audioStorageId: undefined};
     }
     // fetches the message audio
-    const audio = await textToSpeech(args.text);
+    const audio = await textToSpeech(args.text, playerDescription.avatar_voice_url);
     // stores the message as an audio file
     const audioStorageId = await ctx.storage.store(audio);
     const audioStorageUrl = (await ctx.storage.getUrl(audioStorageId))!;
@@ -627,5 +631,19 @@ export const patchMessageWithAudio = internalMutation({
         audioStorageId: args.audioStorageId,
       });
     }
+  },
+});
+
+export const loadPlayerDescriptionFromId = internalQuery({
+  args: {
+    worldId: v.id('worlds'),
+    playerId: playerId,
+  },
+  handler: async (ctx, args) => {
+    const playerDescription = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
+      .first();
+    return playerDescription;
   },
 });

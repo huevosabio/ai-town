@@ -179,6 +179,7 @@ export const agentInputs = {
         false,
         undefined,
         description.avatar_id,
+        description.avatar_voice_url,
       );
       const agentId = game.allocId('agents');
       game.world.agents.set(

@@ -33,6 +33,7 @@ type Character = {
   hasSecretCode: boolean;
   reportedAsHuman: boolean;
   avatar_id?: string;
+  avatar_voice_url?: string;
 };
 
 type CharacterSprite = {

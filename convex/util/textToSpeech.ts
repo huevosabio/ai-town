@@ -1,6 +1,7 @@
 
+const DEFAULT_VOICE_URL = 's3://voice-cloning-zero-shot/d9ff78ba-d016-47f6-b0ef-dd630f59414e/female-cs/manifest.json';
 
-export async function textToSpeech(text: string): Promise<any> {
+export async function textToSpeech(text: string, voiceUrl?: string): Promise<any> {
   const PLAYHT_USER_ID = process.env.PLAYHT_USER_ID || '';
   const PLAYHT_API_KEY = process.env.PLAYHT_API_KEY || '';
   if (!PLAYHT_USER_ID || !PLAYHT_API_KEY) {
@@ -17,7 +18,7 @@ export async function textToSpeech(text: string): Promise<any> {
     },
     body: JSON.stringify({
       text: text,
-      voice: 's3://voice-cloning-zero-shot/d9ff78ba-d016-47f6-b0ef-dd630f59414e/female-cs/manifest.json',
+      voice: voiceUrl || DEFAULT_VOICE_URL,
       output_format: 'mp3'
     })
   };

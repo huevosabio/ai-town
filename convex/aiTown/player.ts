@@ -180,6 +180,7 @@ export class Player {
     reportedAsHuman: boolean,
     tokenIdentifier?: string,
     avatar_id?: string,
+    avatar_voice_url?: string,
   ) {
     if (tokenIdentifier) {
       let numHumans = 0;
@@ -231,6 +232,7 @@ export class Player {
         description,
         name,
         avatar_id,
+        avatar_voice_url,
       }),
     );
     game.descriptionsModified = true;
@@ -282,6 +284,7 @@ export const playerInputs = {
       reportedAsHuman: v.boolean(),
       tokenIdentifier: v.optional(v.string()),
       avatar_id: v.optional(v.string()),
+      avatar_voice_url: v.optional(v.string()),
     },
     handler: (game, now, args) => {
       Player.join(
@@ -294,6 +297,7 @@ export const playerInputs = {
         args.reportedAsHuman,
         args.tokenIdentifier,
         args.avatar_id,
+        args.avatar_voice_url,
         );
       return null;
     },

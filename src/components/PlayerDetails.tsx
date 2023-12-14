@@ -185,7 +185,7 @@ export default function PlayerDetails({
       )}
       {inConversationWithMe && (
         <>
-        <AudioAvatar audioUrl={lastMessage?.audioUrl} avatarId={playerDescription?.avatar_id} />
+        <AudioAvatar audioUrl={lastMessage?.audioUrl} avatarId={playerDescription?.avatar_id}/>
         <a
           className={
             'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +

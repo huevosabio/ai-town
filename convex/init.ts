@@ -88,6 +88,7 @@ export const init = mutation({
             hasSecretCode: agent.hasSecretCode,
             reportedAsHuman: agent.reportedAsHuman,
             avatar_id: agent.avatar_id,
+            avatar_voice_url: agent.avatar_voice_url,
           });
         } else {
           console.log(`creating agent ${agent.name} as bot`)

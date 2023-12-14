@@ -1,5 +1,10 @@
 ## This is Ramon's log
 
+- [2023-12-13 16:43:42] I think I reached a checkpoint, I will push this as is to zaranova.xyz, and gather some feedback while I fix the last kinks:
+  - pathfinding
+  - leaderboard
+  - voice overlaps
+- [2023-12-13 14:37:13] Ok, I want now to choose the voices for each avatar
 - [2023-12-13 10:36:57] Eavesdropped audio works!!! It has some issues though:
   - how do you manage to not overlap the messages within the same conversation?
 - [2023-12-12 13:52:54] Ok, after much tinkering with the avatars, turns out just having it as its separate component is best. Now, I need to make sure that:
