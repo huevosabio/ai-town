@@ -127,6 +127,8 @@ export const debugCreatePlayers = internalMutation({
         name: `Robot${i}`,
         description: `This player is a robot.`,
         character: `f${1 + (i % 8)}`,
+        hasSecretCode: false, // add this line
+        reportedAsHuman: false, // add this line
       });
     }
   },
