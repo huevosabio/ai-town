@@ -12,6 +12,7 @@ export default function MusicButton() {
   useEffect(() => {
     if (musicUrl) {
       sound.add('background', musicUrl).loop = true;
+      sound.volume('background', 0.005);
     }
   }, [musicUrl]);
 

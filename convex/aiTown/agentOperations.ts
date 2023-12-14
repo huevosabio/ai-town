@@ -94,6 +94,20 @@ export const agentGenerateMessage = internalAction({
       args.playerId as GameId<'players'>,
       args.otherPlayerId as GameId<'players'>,
     );
+    await ctx.runAction(internal.aiTown.agent.agentOverheardMessages, {
+      worldId: args.worldId,
+      conversationId: args.conversationId,
+      playerId: args.playerId,
+      text: content,
+      messageUuid: args.messageUuid
+    });
+    const { audioStorageId } = (await ctx.runAction(internal.aiTown.agent.getMessageAudio, {
+      worldId: args.worldId,
+      conversationId: args.conversationId,
+      playerId: args.playerId,
+      text: content,
+      messageUuid: args.messageUuid
+    }))!;
     await ctx.runMutation(internal.aiTown.agent.agentSendMessage, {
       worldId: args.worldId,
       conversationId: args.conversationId,
@@ -103,6 +117,7 @@ export const agentGenerateMessage = internalAction({
       messageUuid: args.messageUuid,
       leaveConversation: args.type === 'leave',
       operationId: args.operationId,
+      audioStorageId,
     });
     // note that this may have issues where it doesn't run because the operation is deleted?
     // check if there are actions that need to affect the world based on functionCallName

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery, useAction } from 'convex/react';
 import { KeyboardEvent, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
@@ -23,7 +23,7 @@ export function MessageInput({
     ?.name;
   const inputRef = useRef<HTMLParagraphElement>(null);
   const inflightUuid = useRef<string | undefined>();
-  const writeMessage = useMutation(api.messages.writeMessage);
+  const sendMessage = useAction(api.messages.sendMessage);
   const startTyping = useSendInput(engineId, 'startTyping');
   const currentlyTyping = conversation.isTyping;
 
@@ -32,7 +32,6 @@ export function MessageInput({
 
     // Set the typing indicator if we're not submitting.
     if (e.key !== 'Enter') {
-      console.log(inflightUuid.current);
       if (currentlyTyping || inflightUuid.current !== undefined) {
         return;
       }
@@ -65,7 +64,7 @@ export function MessageInput({
       messageUuid = currentlyTyping.messageUuid;
     }
     messageUuid = messageUuid || crypto.randomUUID();
-    await writeMessage({
+    await sendMessage({
       worldId,
       playerId: humanPlayer.id,
       conversationId: conversation.id,

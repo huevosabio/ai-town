@@ -71,6 +71,7 @@ export async function rememberConversation(
     content: `This is the conversation log:`,
   });
   const authors = new Set<GameId<'players'>>();
+  const eavesdropperIds = new Set<GameId<'players'>>();
   if (messages.length > 0) {
 
     for (const message of messages) {
@@ -81,7 +82,25 @@ export async function rememberConversation(
         role: 'user',
         content: `${author.name} to ${recipient.name}: ${message.text}`,
       });
+      if (message.eavesdroppers.length > 0) {
+        for (const eavesdropperId of message.eavesdroppers) {
+          eavesdropperIds.add(eavesdropperId as GameId<'players'>);
+        }
+      }
     }
+  }
+  // get names of the eavesdroppers if any
+  if (eavesdropperIds.size > 0) {
+    // get eavesdropper names
+    const eavesdroppers = await ctx.runQuery(selfInternal.loadPlayersFromIds, {
+      worldId,
+      playerIds: [...eavesdropperIds],
+    });
+    const eavesdropperNames = eavesdroppers.map((e) => e.name);
+    llmMessages.push({
+      role: 'user',
+      content: `The following characters may have eavesdropped the conversation: ${eavesdropperNames.join(', ')}`,
+    });
   }
 
   llmMessages.push({ role: 'user', content: 'Summary:' });
@@ -121,6 +140,20 @@ export async function rememberConversation(
   await reflectOnMemories(ctx, worldId, playerId);
   return description;
 }
+
+export const loadPlayersFromIds = internalQuery({
+  args: {
+    worldId: v.id('worlds'),
+    playerIds: v.array(playerId),
+  },
+  handler: async (ctx, args) => {
+    const playerDescriptions = (await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .collect()).filter((p) => args.playerIds.includes(p.playerId as GameId<'players'>));
+    return playerDescriptions;
+  },
+});
 
 export const loadConversation = internalQuery({
   args: {
@@ -296,8 +329,8 @@ export async function createAndUpdatePlan(
   const plan_prompt = `This is your current plan: ${currentPlan}`;
   const reflection_prompt = `These are your reflections on your recent conversations and events: ${reflection}`;
   const request_prompt = `I would like you to update your plan based on these reflections and events.
-  Write out your full updated plan. Keep as much of the orginal plan as possible.
-  Be very specific and very concise, what are immidiate actions to take?
+  Write out your full updated plan. Keep as much of the original plan as possible.
+  Be VERY SPECIFIC and VERY CONCISE, what are immediate actions to take?
   `;
 
   const prompt = base_prompt + plan_prompt + reflection_prompt + request_prompt;
@@ -343,6 +376,7 @@ export async function rememberEvent(
   otherPlayerId: GameId<'players'>,
   event_type: 'agentReported' | 'agentSharedSecretCode' | 'agentObtainedSecretCode' | 'inviteRejectedBySelf' | 'inviteRejectedByOther',
   conversationId?: GameId<'conversations'>,
+  message?: string,
 ) {
   // store memory with the reporting action
   const now = Date.now();
@@ -390,6 +424,42 @@ export async function rememberEvent(
     embedding,
   });
 }
+
+export async function rememberOverheardMessage(
+  ctx: ActionCtx,
+  worldId: Id<'worlds'>,
+  agentId: GameId<'agents'>,
+  playerId: GameId<'players'>,
+  fromPlayerId: GameId<'players'>,
+  toPlayerId: GameId<'players'>,
+  conversationId: GameId<'conversations'>,
+  message: string,
+) {
+  // store memory with the reporting action
+  const now = Date.now();
+  const { playerDescription: fromPlayerDescription } = await ctx.runQuery(selfInternal.loadPlayerDescription, { worldId, playerId: fromPlayerId });
+  const { playerDescription: toPlayerDescription  } = await ctx.runQuery(selfInternal.loadPlayerDescription, { worldId, playerId: toPlayerId });
+  let description = `Event log at ${new Date(now).toLocaleString()}: `;
+  const importance = 5;
+  description = description + `
+    I overheard ${fromPlayerDescription.name} tell ${toPlayerDescription.name} the following message: ` + message;
+  const { embedding } = await fetchEmbedding(description);
+  await ctx.runMutation(selfInternal.insertMemory, {
+    agentId: agentId,
+    worldId: worldId,
+    playerId,
+    description,
+    importance,
+    lastAccess: Date.now(),
+    data: {
+      type: 'event',
+      conversationId,
+      playerIds: [fromPlayerId, toPlayerId],
+    },
+    embedding,
+  });
+}
+
 export const updatePlan = internalMutation({
   args: {
     agentDescriptionId: v.id('agentDescriptions'),
@@ -578,7 +648,7 @@ export const insertMemory = internalMutation({
   },
   handler: async (ctx, { agentId, embedding, ...memory }): Promise<void> => {
     const embeddingId = await ctx.db.insert('memoryEmbeddings', {
-      worldPlayerId: memory.worldId + playerId,
+      worldPlayerId: memory.worldId + memory.playerId,
       playerId: memory.playerId,
       embedding: embedding,
     });

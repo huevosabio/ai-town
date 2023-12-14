@@ -146,4 +146,15 @@ export const aiTownTables = {
     expires: v.number(),
     worldId: v.optional(v.id('worlds')),
   }).index('userId', ['userId']),
+
+  // eavesdropping feed
+  eavesdropFeed: defineTable({
+    worldId: v.id('worlds'),
+    userId: v.id('users'),
+    audioUrl: v.string(),
+    timestamp: v.number(),
+    isRead: v.boolean(),
+    expires: v.number(),
+  }).index('userId', ['userId'])
+    .index('worldUserId', ['worldId', 'userId']),
 };

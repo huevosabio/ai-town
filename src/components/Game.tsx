@@ -13,6 +13,7 @@ import VictoryBanner from './VictoryBanner.tsx';
 import { GameId } from '../../convex/aiTown/ids.ts';
 import { useServerGame } from '../hooks/serverGame.ts';
 import { notificationToast } from '../toasts.ts';
+import EavesdropAudio from './EavesdropAudio.tsx';
 
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
@@ -69,6 +70,7 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
         ${selectedElement ? 'grid-rows-[0px_1fr]' : 'grid-rows-[1fr_180px]'}
       `}>
         <VictoryBanner gameStatus={worldStatus}/>
+        <EavesdropAudio worldId={worldId}/>
         {/* Game area */}
         <div className="relative overflow-hidden bg-brown-900" ref={gameWrapperRef}>
           <div className="absolute inset-0">

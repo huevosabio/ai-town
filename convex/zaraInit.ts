@@ -99,6 +99,8 @@ export const multiplayerInit = mutation({
             tokenIdentifier: user.tokenId,
             hasSecretCode: false,
             reportedAsHuman: false,
+            avatar_id: character.avatar_id,
+            avatar_voice_url: character.avatar_voice_url,
           });
         }
       }

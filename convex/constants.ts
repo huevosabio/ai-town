@@ -91,3 +91,5 @@ export const MAX_INVITE_DISTANCE = 10;
 export const MAX_WANDER_DISTANCE = 10;
 
 export const EAVESDROP_RADIUS = 3;
+
+export const EAVESDROP_EXPIRY = 60 * 1000;

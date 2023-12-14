@@ -16,14 +16,17 @@ import {
   MIDPOINT_THRESHOLD,
   PLAYER_CONVERSATION_COOLDOWN,
   MEMORY_LOOKBACK,
-  MAX_INVITE_DISTANCE
+  MAX_INVITE_DISTANCE,
+  EAVESDROP_EXPIRY
 } from '../constants';
 import { FunctionArgs } from 'convex/server';
-import { MutationCtx, internalMutation, internalQuery } from '../_generated/server';
+import { MutationCtx, internalMutation, internalQuery, internalAction} from '../_generated/server';
 import { distance } from '../util/geometry';
 import { internal } from '../_generated/api';
 import { movePlayer } from './movement';
 import { insertInput } from './insertInput';
+import { rememberOverheardMessage } from '../agent/memory';
+import {textToSpeech} from '../util/textToSpeech';
 
 export class Agent {
   id: GameId<'agents'>;
@@ -426,14 +429,25 @@ export const agentSendMessage = internalMutation({
     messageUuid: v.string(),
     leaveConversation: v.boolean(),
     operationId: v.string(),
+    audioStorageId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // get the world
+    const world = (await ctx.db.get(args.worldId))!;
+    // get the conversation
+    const conversation = world.conversations.find((c) => c.id === args.conversationId);
+    const participantsIds = conversation?.participants.map((p) => p.playerId) ?? [];
+    const author = args.playerId;
+    const otherPlayerId = participantsIds.find((id) => id !== author);
     await ctx.db.insert('messages', {
       conversationId: args.conversationId,
-      author: args.playerId,
+      author,
       text: args.text,
       messageUuid: args.messageUuid,
       worldId: args.worldId,
+      eavesdroppers: conversation?.eavesdroppers ?? [],
+      seen: false,
+      audioStorageId: args.audioStorageId
     });
     await insertInput(ctx, args.worldId, 'agentFinishSendingMessage', {
       conversationId: args.conversationId,
@@ -480,5 +494,156 @@ export const findConversationCandidate = internalQuery({
     // Sort by distance and take the nearest candidate.
     candidates.sort((a, b) => distance(a.position, position) - distance(b.position, position));
     return candidates[0]?.id;
+  },
+});
+
+export const agentOverheardMessages = internalAction({
+  args: {
+    worldId: v.id('worlds'),
+    conversationId,
+    playerId,
+    text: v.string(),
+    messageUuid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // save message as eavesdrop to all relevant agents
+    // get the world
+    const {world} = (await ctx.runQuery(internal.agent.memory.loadWorld, { worldId: args.worldId }))!;
+    // get the conversation
+    const conversation = world.conversations.find((c) => c.id === args.conversationId);
+    const participantsIds = conversation?.participants.map((p) => p.playerId) ?? [];
+    const author = args.playerId;
+    const otherPlayerId = participantsIds.find((id) => id !== author);
+    // for each eavesdropper, remember the message as a memory
+    for (const eavesdropperId of conversation?.eavesdroppers ?? []) {
+      // load the agent if it is not human
+      const eavesdropperAgent = world.agents.find((a) => a.playerId === eavesdropperId);
+      const promises = [];
+      if (eavesdropperAgent) {
+        // remember the message
+        promises.push(rememberOverheardMessage(
+          ctx,
+          args.worldId,
+          eavesdropperAgent.id as GameId<'agents'>,
+          eavesdropperId as GameId<'players'>,
+          author as GameId<'players'>,
+          otherPlayerId as GameId<'players'>,
+          args.conversationId as GameId<'conversations'>,
+          args.text,
+        ));
+      }
+      await Promise.all(promises);
+      // you need to send a rememberEvent with the participants but also with the message
+      // I need to alter remember event
+    }
+  },
+});
+
+export const getMessageAudio = internalAction({
+  args: {
+    worldId: v.id('worlds'),
+    conversationId,
+    playerId,
+    text: v.string(),
+    messageUuid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // get conversation participants
+    const {world} = (await ctx.runQuery(internal.agent.memory.loadWorld, { worldId: args.worldId }))!;
+    const playerDescription = (await ctx.runQuery(
+      internal.aiTown.agent.loadPlayerDescriptionFromId,
+      {worldId: args.worldId, playerId: args.playerId}
+    ))!;
+    const conversation = world.conversations.find((c) => c.id === args.conversationId);
+    const otherPlayerId = conversation?.participants.find((p) => p.playerId !== args.playerId)?.playerId;
+    const otherPlayer = world.players.find((p) => p.id === otherPlayerId);
+    const humanEavesdroppers = world.players.filter((p) => conversation?.eavesdroppers.includes(p.id) &&  p.human);
+    const isHumanAudience = humanEavesdroppers || (otherPlayer && otherPlayer.human);
+    if (!isHumanAudience) {
+      // don't generate audio for non-human audiences
+      return {audioStorageId: undefined};
+    }
+    // fetches the message audio
+    const audio = await textToSpeech(args.text, playerDescription.avatar_voice_url);
+    // stores the message as an audio file
+    const audioStorageId = await ctx.storage.store(audio);
+    const audioStorageUrl = (await ctx.storage.getUrl(audioStorageId))!;
+
+    // pushes to eavesdrop feed of each human eavesdropper
+    for (const eavesdropper of humanEavesdroppers) {
+      if (!eavesdropper.human) {
+        // this is redundant, but type checker complains otherwise
+        continue;
+      }
+      await ctx.runMutation(internal.aiTown.agent.pushToEavesdropFeed, {
+        worldId: args.worldId,
+        tokenId: eavesdropper.human,
+        audioUrl: audioStorageUrl,
+      });
+    }
+
+    return { audioStorageId };
+  },
+});
+
+export const pushToEavesdropFeed = internalMutation({
+  args: {
+    worldId: v.id('worlds'),
+    tokenId: v.string(),
+    audioUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // get user id
+    const user = (await ctx.db
+      .query('users')
+      .withIndex('byTokenId', (q) => q.eq('tokenId', args.tokenId))
+      .first())!;
+    // insert into user feed
+    const now = Date.now();
+    await ctx.db.insert('eavesdropFeed', {
+      worldId: args.worldId,
+      userId: user._id,
+      audioUrl: args.audioUrl,
+      timestamp: now,
+      isRead: false,
+      expires: now + EAVESDROP_EXPIRY
+    });
+  }
+});
+
+
+export const patchMessageWithAudio = internalMutation({
+  args: {
+    worldId: v.id('worlds'),
+    conversationId,
+    messageUuid: v.string(),
+    audioStorageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const message = await ctx.db
+      .query('messages')
+      .withIndex('worldConvMessageUuid', (q) =>
+        q.eq('worldId', args.worldId).eq('conversationId', args.conversationId).eq('messageUuid', args.messageUuid),
+      )
+      .first();
+    if (message){
+      await ctx.db.patch(message._id, {
+        audioStorageId: args.audioStorageId,
+      });
+    }
+  },
+});
+
+export const loadPlayerDescriptionFromId = internalQuery({
+  args: {
+    worldId: v.id('worlds'),
+    playerId: playerId,
+  },
+  handler: async (ctx, args) => {
+    const playerDescription = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
+      .first();
+    return playerDescription;
   },
 });
