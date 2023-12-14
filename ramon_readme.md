@@ -1,5 +1,6 @@
 ## This is Ramon's log
 
+- [2023-12-14 14:25:24] something is broken with the messages in prod, it takes longer for whatever reason
 - [2023-12-14 08:13:12] today I will these things:
   - push current version to prod [done]
   - fix the lag in sending the messages (I think it is due to the audio generation?)

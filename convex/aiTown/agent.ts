@@ -558,7 +558,8 @@ export const getMessageAudio = internalAction({
     const otherPlayerId = conversation?.participants.find((p) => p.playerId !== args.playerId)?.playerId;
     const otherPlayer = world.players.find((p) => p.id === otherPlayerId);
     const humanEavesdroppers = world.players.filter((p) => conversation?.eavesdroppers.includes(p.id) &&  p.human);
-    const isHumanAudience = humanEavesdroppers || (otherPlayer && otherPlayer.human);
+  
+    const isHumanAudience = humanEavesdroppers.length > 0 || (otherPlayer && otherPlayer.human);
     if (!isHumanAudience) {
       // don't generate audio for non-human audiences
       return {audioStorageId: undefined};
