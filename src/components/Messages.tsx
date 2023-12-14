@@ -76,7 +76,7 @@ export function Messages({
       if (m.status.kind === 'participating') {
         started = m.status.started;
       }
-      if (playerId !== selectedPlayer.id && !humanIsParticipant) {
+      if (playerId !== selectedPlayer.id && !humanIsParticipant && started) {
         membershipNodes.push({
           node: (
             <div key={`joined-${playerId}`} className="leading-tight mb-6">
@@ -126,11 +126,6 @@ export function Messages({
                 <i>typing...</i>
               </p>
             </div>
-          </div>
-        )}
-        {!humanPlayer && (
-          <div className="flex gap-4">
-            <span className="uppercase flex-grow">{humanName}</span>
           </div>
         )}
         {humanPlayer && inConversationWithMe && conversation.kind === 'active' && (
