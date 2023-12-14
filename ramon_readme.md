@@ -1,7 +1,8 @@
 ## This is Ramon's log
 
 - [2023-12-14 08:13:12] today I will these things:
-  - push current version to prod
+  - push current version to prod [done]
+  - fix the lag in sending the messages (I think it is due to the audio generation?)
   - fix message bubbles when eavesdropping
   - add sounds to certain events to make it less quiet
 - [2023-12-13 16:43:42] I think I reached a checkpoint, I will push this as is to zaranova.xyz, and gather some feedback while I fix the last kinks:

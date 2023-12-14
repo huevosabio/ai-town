@@ -240,10 +240,11 @@ export default function PlayerDetails({
             inConversationWithMe={inConversationWithMe ?? false}
             conversation={{ kind: 'active', doc: playerConversation }}
             humanPlayer={humanPlayer}
+            selectedPlayer={player}
           />
         </>
       )}
-            {!playerConversation && previousConversation && (
+      {!playerConversation && previousConversation && (
         <>
           <div className="box">
             <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
@@ -254,6 +255,7 @@ export default function PlayerDetails({
             inConversationWithMe={false}
             conversation={{ kind: 'archived', doc: previousConversation }}
             humanPlayer={humanPlayer}
+            selectedPlayer={player}
           />
         </>
       )}

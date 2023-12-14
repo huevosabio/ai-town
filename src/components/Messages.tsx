@@ -11,6 +11,7 @@ export function Messages({
   engineId,
   conversation,
   inConversationWithMe,
+  selectedPlayer,
   humanPlayer,
 }: {
   worldId: Id<'worlds'>;
@@ -19,6 +20,7 @@ export function Messages({
     | { kind: 'active'; doc: Conversation }
     | { kind: 'archived'; doc: Doc<'archivedConversations'> };
   inConversationWithMe: boolean;
+  selectedPlayer: Player;
   humanPlayer?: Player;
 }) {
   const humanPlayerId = humanPlayer?.id;
@@ -52,10 +54,12 @@ export function Messages({
     return null;
   }
   const messageNodes: { time: number; node: React.ReactNode }[] = messages.map((m) => {
+    const isHumanPlayerMessage = m.author === humanPlayerId;
+    const isSelectedPlayerMessage = m.author === selectedPlayer.id;
     const node = (
       <div key={`text-${m._id}`} className="leading-tight mb-6">
-        <div className={clsx('bubble', m.author === humanPlayerId && 'bubble-mine')}>
-        <p className={clsx('-mx-3 -my-1', m.author === humanPlayerId ? 'bg-white' : 'bg-slate-300')}>{m.text}</p>
+        <div className={clsx('bubble', (isHumanPlayerMessage || !isSelectedPlayerMessage) && 'bubble-mine')}>
+        <p className={clsx('-mx-3 -my-1', (isHumanPlayerMessage || !isSelectedPlayerMessage) ? 'bg-white' : 'bg-slate-300')}>{m.text}</p>
         </div>
       </div>
     );
@@ -72,11 +76,11 @@ export function Messages({
       if (m.status.kind === 'participating') {
         started = m.status.started;
       }
-      if (false) {
+      if (playerId !== selectedPlayer.id && !humanIsParticipant) {
         membershipNodes.push({
           node: (
             <div key={`joined-${playerId}`} className="leading-tight mb-6">
-              <p className="text-brown-700 text-center">{playerName} joined the conversation.</p>
+              <p className="text-brown-700 text-center">In conversation with {playerName}.</p>
             </div>
           ),
           time: started,
@@ -122,6 +126,11 @@ export function Messages({
                 <i>typing...</i>
               </p>
             </div>
+          </div>
+        )}
+        {!humanPlayer && (
+          <div className="flex gap-4">
+            <span className="uppercase flex-grow">{humanName}</span>
           </div>
         )}
         {humanPlayer && inConversationWithMe && conversation.kind === 'active' && (
