@@ -1,9 +1,14 @@
 ## This is Ramon's log
 
+- [2023-12-14 08:13:12] today I will these things:
+  - push current version to prod
+  - fix message bubbles when eavesdropping
+  - add sounds to certain events to make it less quiet
 - [2023-12-13 16:43:42] I think I reached a checkpoint, I will push this as is to zaranova.xyz, and gather some feedback while I fix the last kinks:
   - pathfinding
   - leaderboard
   - voice overlaps
+  - message bubbles when eavesdropping
 - [2023-12-13 14:37:13] Ok, I want now to choose the voices for each avatar
 - [2023-12-13 10:36:57] Eavesdropped audio works!!! It has some issues though:
   - how do you manage to not overlap the messages within the same conversation?
