@@ -145,6 +145,7 @@ export const aiTownTables = {
     isRead: v.boolean(),
     expires: v.number(),
     worldId: v.optional(v.id('worlds')),
+    type: v.string(),
   }).index('userId', ['userId']),
 
   // eavesdropping feed
@@ -155,6 +156,7 @@ export const aiTownTables = {
     timestamp: v.number(),
     isRead: v.boolean(),
     expires: v.number(),
+    authorId: playerId,
   }).index('userId', ['userId'])
     .index('worldUserId', ['worldId', 'userId']),
 };

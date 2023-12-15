@@ -14,6 +14,7 @@ import { GameId } from '../../convex/aiTown/ids.ts';
 import { useServerGame } from '../hooks/serverGame.ts';
 import { notificationToast } from '../toasts.ts';
 import EavesdropAudio from './EavesdropAudio.tsx';
+import {sound} from '@pixi/sound';
 
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
@@ -31,13 +32,25 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
   const worldId = worldStatus?.worldId;
   const engineId = worldStatus?.engineId;
 
+
   const game = useServerGame(worldId);
   const notifications = useQuery(api.zaraInit.getNotifications, {worldId: worldId});
 
+  const [soundAdded, setSoundAdded] = useState(false);
+
+  useEffect(() => {
+    // add sound for report notifications
+    sound.add('reported_character', '/ai-town/assets/sounds/spooky_snap.wav');
+    setSoundAdded(true);
+  }, []);
   useEffect(() => {
     if (notifications){
       for (const notification of notifications) {
         // toast
+        if (notification.type === 'report') {
+          sound.play('reported_character', {volume: 1.0});
+          console.log('played report')
+        }
         notificationToast(notification.message);
       }
       // clear notifications
@@ -45,7 +58,7 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
         notificationIds: notifications.map((n) => n._id),
       });
     }
-  }, [notifications]);
+  }, [notifications, soundAdded]);
 
   // Send a periodic heartbeat to our world to keep it alive.
   useWorldHeartbeat();

@@ -75,7 +75,6 @@ export const PixiGame = (props: {
       x: Math.floor(gameSpaceTiles.x),
       y: Math.floor(gameSpaceTiles.y),
     };
-    console.log(`Moving to ${JSON.stringify(roundedTiles)}`);
     await toastOnError(moveTo({ playerId: humanPlayerId, destination: roundedTiles }));
   };
   // elete
@@ -98,6 +97,9 @@ export const PixiGame = (props: {
   //
   const { width, height, tileDim } = props.game.worldMap;
   const players = [...props.game.world.players.values()];
+  // get human player
+  const humanPlayer = props.game.world.players.get(humanPlayerId!);
+
   return (
     <PixiViewport
       app={pixiApp}
@@ -128,9 +130,17 @@ export const PixiGame = (props: {
           isViewer={p.id === humanPlayerId}
           onClick={props.setSelectedElement}
           historicalTime={props.historicalTime}
+          distanceToHumanPlayer={computeDistance(p.position, humanPlayer!.position)}
         />
       ))}
     </PixiViewport>
   );
 };
 export default PixiGame;
+
+
+function computeDistance(src: { x: number; y: number }, tgt: { x: number; y: number }) {
+  const dx = src.x - tgt.x;
+  const dy = src.y - tgt.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}

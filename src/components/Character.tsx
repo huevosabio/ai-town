@@ -2,6 +2,7 @@ import { BaseTexture, ISpritesheetData, Spritesheet } from 'pixi.js';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatedSprite, Container, Graphics, Text } from '@pixi/react';
 import * as PIXI from 'pixi.js';
+import {sound} from '@pixi/sound';
 
 export const Character = ({
   textureUrl,
@@ -16,6 +17,8 @@ export const Character = ({
   isViewer = false,
   speed = 0.1,
   onClick,
+  playerId,
+  distanceToHumanPlayer,
 }: {
   // Path to the texture packed image.
   textureUrl: string;
@@ -36,6 +39,8 @@ export const Character = ({
   // The speed of the animation. Can be tuned depending on the side and speed of the NPC.
   speed?: number;
   onClick: () => void;
+  playerId?: string;
+  distanceToHumanPlayer?: number;
 }) => {
   const [spriteSheet, setSpriteSheet] = useState<Spritesheet>();
   useEffect(() => {
@@ -64,6 +69,45 @@ export const Character = ({
       ref.current?.play();
     }
   }, [direction, isMoving]);
+
+  const [soundAdded, setSoundAdded] = useState(false);
+  const isMovingRef = useRef(isMoving);
+  const isViewerRef = useRef(isViewer);
+  const stepSoundName = 'steps_' + playerId;
+
+  // load the step sounds
+  useEffect(() => {
+    sound.add(stepSoundName, {url: '/ai-town/assets/sounds/footsteps.wav'}).loop = true;
+    setSoundAdded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!soundAdded) return;
+
+    if (isMoving !== isMovingRef.current || isViewer !== isViewerRef.current) {
+      if (isMoving && isViewer) {
+        sound.play(stepSoundName, {loop: true});
+      } else if (isMoving && !isViewer) {
+        sound.play(stepSoundName, {loop: true, volume: distanceToVolume(distanceToHumanPlayer ?? 0)});
+      } else if (!isMoving) {
+        sound.pause(stepSoundName);
+      }
+    }
+
+    isMovingRef.current = isMoving;
+    isViewerRef.current = isViewer;
+  }, [isMoving, isViewer, soundAdded]);
+
+  // update the volume of the step sounds
+  if (!isViewer && soundAdded && sound.find(stepSoundName).isPlaying) {
+    sound.find(stepSoundName).volume = distanceToVolume(distanceToHumanPlayer ?? 0);
+  }
+
+  // update the volume of eavesdropping
+  const eavesdropName = 'eavesdrop_' + playerId;
+  if (playerId && soundAdded && sound.exists(eavesdropName)) {
+    sound.find(eavesdropName).volume = distanceToVolume(distanceToHumanPlayer ?? 0) / 10; // a bit more aggressive than footsteps
+  }
 
   if (!spriteSheet) return null;
 
@@ -117,4 +161,9 @@ function ViewerIndicator() {
   }, []);
 
   return <Graphics draw={draw} />;
+}
+
+function distanceToVolume(distance: number) {
+  // exponential decay of volume with distance
+  return 2 / (2 + Math.exp(distance/2));
 }

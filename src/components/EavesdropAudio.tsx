@@ -5,15 +5,25 @@ import { useEffect } from 'react';
 import { sound } from '@pixi/sound';
 
 export default function EavesdropAudio({ worldId }: {worldId: Id<'worlds'>}) {
+  /*
+    How this works is that each player has a single sound alias for eavesdropping.
+    When the audio finishes playing, it clears the alias leaving space for the next audio. 
+    Volume is initialized here, but is adjusted in the Character component based on distance.
+  */
   const markEavesdroppedAudioRead = useMutation(api.messages.markEavesdroppedAudioRead);
   const eavesdropAudios = useQuery(api.messages.getEavesDropFeed, {worldId: worldId});
   useEffect(() => {
     if (eavesdropAudios){
       for (const eavesdropAudio of eavesdropAudios) {
         // play audio
-        sound.add(eavesdropAudio._id, eavesdropAudio.audioUrl);
-        sound.volume(eavesdropAudio._id, 0.1);
-        sound.play(eavesdropAudio._id);
+        const eavesdropName = 'eavesdrop_' + eavesdropAudio.authorId;
+        sound.add(eavesdropName, eavesdropAudio.audioUrl);
+        sound.volume(eavesdropName, 0.1);
+        sound.play(eavesdropName,{
+          complete: () => {
+            sound.remove(eavesdropName);
+          }
+        });
       }
       // clear notifications
       markEavesdroppedAudioRead({

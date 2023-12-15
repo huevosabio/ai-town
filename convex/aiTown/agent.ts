@@ -580,6 +580,7 @@ export const getMessageAudio = internalAction({
         worldId: args.worldId,
         tokenId: eavesdropper.human,
         audioUrl: audioStorageUrl,
+        authorId: args.playerId,
       });
     }
 
@@ -592,6 +593,7 @@ export const pushToEavesdropFeed = internalMutation({
     worldId: v.id('worlds'),
     tokenId: v.string(),
     audioUrl: v.string(),
+    authorId: playerId,
   },
   handler: async (ctx, args) => {
     // get user id
@@ -607,7 +609,8 @@ export const pushToEavesdropFeed = internalMutation({
       audioUrl: args.audioUrl,
       timestamp: now,
       isRead: false,
-      expires: now + EAVESDROP_EXPIRY
+      expires: now + EAVESDROP_EXPIRY,
+      authorId: args.authorId,
     });
   }
 });

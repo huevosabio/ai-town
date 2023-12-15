@@ -142,6 +142,7 @@ export async function broadcastNotification(
   ctx: MutationCtx,
   userIds: Id<'users'>[],
   message: string,
+  type: string,
   worldId?: Id<'worlds'>,
 ) {
   const now = Date.now();
@@ -158,6 +159,7 @@ export async function broadcastNotification(
     await ctx.db.insert('notifications', {
       ...notificationArgs,
       userId,
+      type,
     });
   }
 }
@@ -173,7 +175,8 @@ export async function bootPlayer(
     ctx,
     notifyUserIds,
     `${player.name} has been reported.`,
-    worldId
+    'report',
+    worldId,
   );
   // then boot the player
   console.log(`Booting player ${player.id}...`);
@@ -302,6 +305,7 @@ export async function markPlayersAsLeft(
           ctx,
           notifyUserIds,
           `${user.username} has left the game.`,
+          'game',
           worldId
         );
       }

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Character } from './Character.tsx';
 import { orientationDegrees } from '../../convex/util/geometry.ts';
 import { characters } from '../../data/characters.ts';
@@ -11,6 +12,7 @@ import { PlayerDescription } from '../../convex/aiTown/playerDescription.ts';
 import { WorldMap } from '../../convex/aiTown/worldMap.ts';
 import { ServerGame } from '../hooks/serverGame.ts';
 import {THINKING_BUBBLE_ENABLED} from '../../convex/constants.ts';
+import {sound} from '@pixi/sound';
 
 export type SelectElement = (element?: { kind: 'player'; id: GameId<'players'> }) => void;
 
@@ -22,6 +24,7 @@ export const Player = ({
   player,
   onClick,
   historicalTime,
+  distanceToHumanPlayer,
 }: {
   game: ServerGame;
   isViewer: boolean;
@@ -29,6 +32,7 @@ export const Player = ({
 
   onClick: SelectElement;
   historicalTime?: number;
+  distanceToHumanPlayer?: number;
 }) => {
   const playerCharacter = game.playerDescriptions.get(player.id)?.character;
   if (!playerCharacter) {
@@ -90,6 +94,8 @@ export const Player = ({
         onClick={() => {
           onClick({ kind: 'player', id: player.id });
         }}
+        playerId={player.id}
+        distanceToHumanPlayer={distanceToHumanPlayer}
       />
     </>
   );
