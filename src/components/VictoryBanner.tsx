@@ -1,7 +1,8 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import { Doc } from '../../convex/_generated/dataModel';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api.js';
+import {sound} from '@pixi/sound';
 
 interface VictoryBannerProps {
   gameStatus: Doc<'worldStatus'>;
@@ -10,12 +11,23 @@ interface VictoryBannerProps {
 const VictoryBanner: React.FC<VictoryBannerProps> = ({ gameStatus }) => {
   const userId = useQuery(api.zaraInit.getUserId) ?? null;
   const userStatus = gameStatus.userStatus?.find((s) => s.userId === userId)?.status;
+
+  const [soundAdded, setSoundAdded] = useState(false);
+
+  useEffect(() => {
+    // add sound for report notifications
+    sound.add('victory', '/ai-town/assets/sounds/success.wav');
+    sound.add('defeat', '/ai-town/assets/sounds/spooky_snap.wav');
+    setSoundAdded(true);
+  }, []);
+
   let gameOverBanner = null;
   let subtext = null;
   if (gameStatus.isSoloGame) {
     if (gameStatus.status === 'stoppedByHumanVictory') {
       gameOverBanner = 'Human wins!';
       subtext = 'You got the code!';
+      sound.play('victory');
     } else if (gameStatus.status === 'stoppedByHumanCaught') {
       gameOverBanner = 'AI wins!';
       subtext = 'You were caught!';
@@ -31,18 +43,22 @@ const VictoryBanner: React.FC<VictoryBannerProps> = ({ gameStatus }) => {
       case 'lost-left': 
         gameOverBanner = 'You lost!';
         subtext = 'You left the game due to idleness';
+        sound.play('defeat');
         break;
       case 'lost-other-won': 
         gameOverBanner = 'You lost!';
         subtext = 'The other player got the code!';
+        sound.play('defeat');
         break;
       case 'won-code':
         gameOverBanner = 'You won!';
         subtext = 'You got the code!';
+        sound.play('victory');
         break;
       case 'won-last-human': 
         gameOverBanner = 'You won!';
         subtext = 'You are the last human remaining!';
+        sound.play('victory');
         break;
       case 'playing':
         return null;

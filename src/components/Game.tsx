@@ -49,7 +49,6 @@ export default function Game({ setActiveGame }: { setActiveGame: (active: boolea
         // toast
         if (notification.type === 'report') {
           sound.play('reported_character', {volume: 1.0});
-          console.log('played report')
         }
         notificationToast(notification.message);
       }
