@@ -12,6 +12,7 @@ import { GameId } from '../../convex/aiTown/ids';
 import { ServerGame } from '../hooks/serverGame';
 import { useAvatar } from '@avatechai/avatars/react'
 import { ThreeJSPlugin } from "@avatechai/avatars/threejs";
+import { PlayerDescription } from '../../convex/aiTown/playerDescription.ts';
 import AudioAvatar from './AudioAvatar';
 
 export default function PlayerDetails({
@@ -50,6 +51,18 @@ export default function PlayerDetails({
   );
 
   const playerDescription = finalPlayerId && game.playerDescriptions.get(finalPlayerId);
+
+  let otherPlayerId: GameId<'players'> | undefined = undefined;
+  
+  if (playerConversation) {
+    otherPlayerId = [...playerConversation.participants.keys()].find((p) => p !== finalPlayerId);
+  } else if (previousConversation) {
+    otherPlayerId = previousConversation.participants.find((p) => p !== finalPlayerId) as GameId<'players'>;
+  }
+  let otherPlayerDescription: PlayerDescription | undefined = undefined;
+  if (otherPlayerId) {
+    otherPlayerDescription = game.playerDescriptions.get(otherPlayerId);
+  };
   // last message only for human conversations
   const conversationId = humanConversation?.id || playerConversation?.id;
   const lastMessage = useQuery(api.messages.lastMessageAudio, {
@@ -234,6 +247,9 @@ export default function PlayerDetails({
       )}
       {!isMe && playerConversation && playerStatus?.kind === 'participating' && (
         <>
+          <div className="box">
+            <h2 className="bg-brown-700 text-lg text-center">In conversation with {otherPlayerDescription?.name}</h2>
+          </div>
           <Messages
             worldId={worldId}
             engineId={engineId}
@@ -247,7 +263,7 @@ export default function PlayerDetails({
       {!playerConversation && previousConversation && (
         <>
           <div className="box">
-            <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
+            <h2 className="bg-brown-700 text-lg text-center">Previous conversation with with {otherPlayerDescription?.name}</h2>
           </div>
           <Messages
             worldId={worldId}

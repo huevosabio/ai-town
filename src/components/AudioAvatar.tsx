@@ -29,10 +29,6 @@ export default function AudioAvatar({ audioUrl, avatarId }: AudioAvatarProps) {
     if (!initAvatar) return;
     if (audioContextRef.current && audioContextRef.current.state === 'running') return;
     audioContextRef.current = new AudioContext();
-    const handleStateChange = () => {
-      console.log('AudioContext state changed to: ', audioContextRef.current?.state);
-    };
-    audioContextRef.current.onstatechange = handleStateChange;
     connectAudioContext(audioContextRef.current);
   }, [initAvatar]);
 
