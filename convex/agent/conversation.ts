@@ -81,7 +81,9 @@ export async function startConversationMessage(
     character_id: playerId,
     target_char_ids: [otherPlayerId],
     call_type: 'startConversation'
-  });
+  },
+  ctx
+  );
   return {content, functionCallName: undefined};
 }
 
@@ -164,7 +166,8 @@ export async function continueConversationMessage(
     call_type: 'continueConversation'
   }
   const { content, functionCallName } = await chatCompletionWithLogging(
-    availableFunctions.length > 0 ? {...completionParams, functions: availableFunctions} : completionParams
+    availableFunctions.length > 0 ? {...completionParams, functions: availableFunctions} : completionParams,
+    ctx
   );
   return {content, functionCallName};
 }
@@ -224,7 +227,9 @@ export async function leaveConversationMessage(
     character_id: playerId,
     target_char_ids: [otherPlayerId],
     call_type: 'leaveConversation'
-  });
+  },
+  ctx
+  );
   return {content, functionCallName: undefined};
 }
 

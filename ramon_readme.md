@@ -1,5 +1,6 @@
 ## This is Ramon's log
 
+- [2023-12-18 13:48:50] I added function call field for the logger; going to make the changes to pass that from here
 -[2023-12-15 15:04:19] I've added steps and reporting sounds, and distance based decaying for steps and eavesdrops adds a lot actually
 - [2023-12-14 14:25:24] something is broken with the messages in prod, it takes longer for whatever reason
 - [2023-12-14 08:13:12] today I will these things:

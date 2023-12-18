@@ -1,6 +1,8 @@
 import { chatCompletion, CreateChatCompletionRequest } from './openai.js';
-import { callLlmService } from './log_llm_call.js';
+import { callLlmService, LogggedLLMMessage } from './log_llm_call.js';
 import {parseFunctionCall} from './llm_functions.js';
+import { ActionCtx } from '../_generated/server.js';
+import {internal} from '../_generated/api.js';
 
 interface AdditionalParams {
     game_id: string;
@@ -15,7 +17,7 @@ type chatCompletionWithLoggingRequest = Omit<CreateChatCompletionRequest, 'model
 type LLMModel = 'gpt-4-1106-preview' | 'gpt-4-0613' | 'gpt-4' | 'gpt-4-32k' | 'gpt-4-32k-0613' | 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0613' | 'gpt-3.5-turbo-16k' | 'gpt-3.5-turbo-16k-0613' | undefined;
 
 // this function wraps the chat completion function and logs the call to the LLM service
-export const chatCompletionWithLogging = async (params: chatCompletionWithLoggingRequest) => {
+export const chatCompletionWithLogging = async (params: chatCompletionWithLoggingRequest, ctx: ActionCtx) => {
   const {game_id, character_id, target_char_ids, call_type, stop, ...chatCompletionRequest} = params; 
   //const chatCompletionRequest = params as Omit<CreateChatCompletionRequest, 'model'>;
   const model: LLMModel = process.env.LLM_MODEL_ID as LLMModel;
@@ -49,7 +51,7 @@ export const chatCompletionWithLogging = async (params: chatCompletionWithLoggin
   }
 
   const logPayload = {
-    input: params.messages,
+    input: params.messages as LogggedLLMMessage[],
     output: logged_response_content,
     duration_s: msToSeconds(response.ms),
     completion_tokens: response.usage?.completion_tokens,
@@ -61,8 +63,14 @@ export const chatCompletionWithLogging = async (params: chatCompletionWithLoggin
     ts: new Date().toISOString(),
     llm_provider_url: process.env.OPENAI_API_BASE,
     llm_model_id: process.env.LLM_MODEL_ID,
+    function_call_name: functionCallName,
+    function_call_arguments: response.function_call?.arguments,
   };
-  callLlmService(logPayload);
+
+  // schedule a log
+  await ctx.scheduler.runAfter(0, internal.util.log_llm_call.logLLMCall, {
+    llm_payload: logPayload,
+  });
   return {
     content: responseContent,
     retries: response.retries,

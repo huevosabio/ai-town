@@ -111,11 +111,13 @@ export async function rememberConversation(
     character_id: playerId,
     target_char_ids: [otherPlayer.id],
     call_type: 'remember_conversation'
-  });
+  },
+  ctx
+  );
   const description = `Conversation with ${otherPlayer.name} at ${new Date(
     data.conversation._creationTime,
   ).toLocaleString()}: ${content}`;
-  const importance = await calculateImportance(description, playerId, worldId);
+  const importance = await calculateImportance(description, playerId, worldId, ctx);
   const { embedding } = await fetchEmbedding(description);
   authors.delete(player.id as GameId<'players'>);
   // last access is the latest time of record of messages and events
@@ -283,8 +285,10 @@ export async function reflectOnRecentConversations(
     character_id: playerId,
     target_char_ids: [],
     call_type: 'reflect_on_recent_conversations'
-  });
-  const importance = await calculateImportance(content, playerId, worldId);
+  },
+  ctx
+  );
+  const importance = await calculateImportance(content, playerId, worldId, ctx);
   const { embedding } = await fetchEmbedding(content);
   const description = `Reflection on recent conversations and events at  ${new Date(now).toLocaleString()}: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
@@ -347,8 +351,10 @@ export async function createAndUpdatePlan(
     character_id: playerId,
     target_char_ids: [],
     call_type: 'update_plan'
-  });
-  const importance = await calculateImportance(content, playerId, worldId);
+  },
+  ctx
+  );
+  const importance = await calculateImportance(content, playerId, worldId, ctx);
   const { embedding } = await fetchEmbedding(content);
   const description = `New plan at  ${new Date(now).toLocaleString()} based on recent conversations: ${content}`;
   await ctx.runMutation(selfInternal.insertMemory, {
@@ -608,7 +614,9 @@ export const loadMessages = internalQuery({
     return messages;
   },
 });
-async function calculateImportance(description: string, playerId: GameId<'players'>, worldId: Id<'worlds'>) {
+async function calculateImportance(
+  description: string, playerId: GameId<'players'>, worldId: Id<'worlds'>, ctx: ActionCtx
+  ) {
   // TODO: make a better prompt based on the user's memories
   const { content: importanceRaw } = await chatCompletionWithLogging({
     messages: [
@@ -625,7 +633,9 @@ async function calculateImportance(description: string, playerId: GameId<'player
     character_id: playerId,
     target_char_ids: [],
     call_type: 'calculate_importance'
-  });
+  },
+  ctx
+  );
 
   let importance = parseFloat(importanceRaw);
   if (isNaN(importance)) {
@@ -743,13 +753,15 @@ async function reflectOnMemories(
     character_id: playerId,
     target_char_ids: [],
     call_type: 'reflect_on_memories'
-  });
+  },
+  ctx
+  );
 
   try {
     const insights: { insight: string; statementIds: number[] }[] = JSON.parse(reflection);
     const memoriesToSave = await asyncMap(insights, async (item) => {
       const relatedMemoryIds = item.statementIds.map((idx: number) => memories[idx]._id);
-      const importance = await calculateImportance(item.insight, playerId, worldId);
+      const importance = await calculateImportance(item.insight, playerId, worldId, ctx);
       const { embedding } = await fetchEmbedding(item.insight);
       console.debug('adding reflection memory...', item.insight);
       return {
