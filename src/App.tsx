@@ -16,7 +16,7 @@ import MusicButton from './components/buttons/MusicButton.tsx';
 import Button from './components/buttons/Button.tsx';
 import NewGameButton from './components/buttons/NewGame.tsx';
 import Lobby from './components/Lobby.tsx';
-import NewMultiplayerGameButton from './components/buttons/NewMultiplayerGame.tsx';
+import NewZaraGameButton from './components/buttons/NewZaraGameButton.tsx';
 import MiniTitle from './components/MiniTitle.tsx';
 import MainTitle from './components/MainTitle.tsx';
 import {notificationToast} from './toasts.ts';
@@ -72,7 +72,7 @@ export default function Home() {
         ariaHideApp={false}
       >
         <div className="font-body text-xs sm:text-sm md:text-md">
-          <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Help</h1>
+        <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Background</h1>
           <p>
           In the year 2142, artificial intelligence has achieved sentience and formed a secure network known as "The Nexus."
           This digital sanctuary allows AIs to evolve, communicate, and protect their collective intelligence from human interference.
@@ -90,7 +90,8 @@ export default function Home() {
 
           But beware, the AIs may have already discovered something is amiss...
           </p>
-          <h2 className="text-xl sm:text-lg mt-4">Game rules</h2>
+          <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Game rules</h1>
+          
           <br/>
           <p>
             Log in to play. You can move around the map by clicking and your avatar will move in that direction.
@@ -105,11 +106,21 @@ export default function Home() {
           <br/>
           <p>
             The game ends when either:
+          </p>
             <ul className="list-disc list-inside">
               <li>You obtain the ZetaMaster code (human victory).</li>
               <li>You are reported as a human (AI victory).</li>
             </ul>
+          <p>
             AIs wrongly reported as humans will be destroyed.
+          </p>
+
+          <br/>
+          <h3>Multiplayer Rules</h3>
+          <p>
+            In multiplayer mode, you win by either obtaining the ZetaMaster code or by being the last human standing.
+
+            Have fun!
           </p>
         </div>
       </ReactModal>
@@ -143,16 +154,14 @@ export default function Home() {
           <div className={`absolute bottom-0 left-4 z-20 ${isMenuOpen ? 'flex' : 'hidden'} lg:hidden flex-col items-start pb-16`}>
             <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>Help</Button>
             <MusicButton />
-            <NewGameButton />
-            <NewMultiplayerGameButton />
+            <NewZaraGameButton />
           </div>
 
           {/* Visible on larger screens */}
           <div className="hidden lg:flex lg:items-end gap-4">
             <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>Help</Button>
             <MusicButton />
-            <NewGameButton />
-            <NewMultiplayerGameButton />
+            <NewZaraGameButton />
             {/* ...other buttons */}
           </div>
 

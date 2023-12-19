@@ -11,7 +11,7 @@ import { useConvexAuth } from "convex/react";
 import { notificationToast } from '../toasts';
 
 export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolean) => void}) {
-  const startGame = useMutation(api.zaraInit.multiplayerInit);
+  const startGame = useMutation(api.zaraInit.initGame);
   const joinParty = useMutation(api.zaraInit.joinParty);
   const leaveParty = useMutation(api.zaraInit.leaveParty);
   
@@ -103,13 +103,13 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
           </h2>
         </div>
       </div>
-      {partyData.isHost && partyData.users.length > 1 && (
+      {partyData.isHost && (
           <a
           className='mt-6 button text-white shadow-solid text-base lg:text-lg cursor-pointer pointer-events-auto'
           onClick={() => startGame({partyId: partyData.id})}
         >
           <h2 className="h-full bg-clay-700 text-center">
-            <span>Start</span>
+            <span>{partyData.users.length === 1 ? `Start Solo Game` : `Start Multiplayer Game`}</span>
           </h2>
         </a>
       )}
@@ -156,8 +156,8 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
         </a>
       </div>
       {/* The multiplayer instructions */}
-      <div className="multiplayer-help hidden lg:block font-body text-xs sm:text-sm md:text-md">
-          <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Help</h1>
+      <div className="multiplayer-help hidden lg:block font-body text-xs sm:text-sm md:text-md overflow-y-auto">
+          <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Background</h1>
           <p>
           In the year 2142, artificial intelligence has achieved sentience and formed a secure network known as "The Nexus."
           This digital sanctuary allows AIs to evolve, communicate, and protect their collective intelligence from human interference.
@@ -175,7 +175,8 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
 
           But beware, the AIs may have already discovered something is amiss...
           </p>
-          <h2 className="text-xl sm:text-lg mt-4">Game rules</h2>
+          <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Game rules</h1>
+          
           <br/>
           <p>
             Log in to play. You can move around the map by clicking and your avatar will move in that direction.
@@ -198,7 +199,15 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
           <p>
             AIs wrongly reported as humans will be destroyed.
           </p>
-        </div>
+
+          <br/>
+          <h3>Multiplayer Rules</h3>
+          <p>
+            In multiplayer mode, you win by either obtaining the ZetaMaster code or by being the last human standing.
+
+            Have fun!
+          </p>
+      </div>
     </div>
   );
 }

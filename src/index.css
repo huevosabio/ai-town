@@ -225,6 +225,7 @@ p[contenteditable='true']:empty::before {
   border-radius: 0;
   background: rgb(35, 38, 58);
   color: white;
+  padding: 20px;
 }
 
 .pretty-scroll {

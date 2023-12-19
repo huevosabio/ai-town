@@ -48,10 +48,13 @@ export const stopIfHumanVictory = internalMutation({
       console.log(`Human Victory! Stopping engine...`);
       const userStatus = worldStatus.userStatus?.map(
         (u) => u.userId === user?._id
-        ? { userId: u.userId, status: 'won' }
-        : {userId: u.userId, status: u.status === 'playing' ? 'lost-other-won' : u.status},
+        ? { userId: u.userId, status: STATUS_WON_CODE as StatusType}
+        : {userId: u.userId, status: u.status === STATUS_PLAYING ? STATUS_LOST_OTHER_WON : u.status},
       )
-      await ctx.db.patch(worldStatus._id, { status: 'stoppedByHumanVictory' });
+      await ctx.db.patch(worldStatus._id, {
+        status: 'stoppedByHumanVictory',
+        userStatus: userStatus,
+      });
       await stopEngine(ctx, args.worldId);
     } else {
       // continue game
@@ -101,7 +104,7 @@ export const handleReportedPlayer = internalMutation({
     
       // Handle game-ending conditions
       if (worldStatus.isSoloGame) {
-        await handleSoloEndGame(ctx, worldStatus._id, args.worldId)
+        await handleSoloEndGame(ctx, worldStatus)
       } else if (numHumans === 2) {
         await handleMultiEndGame(ctx, world.players, worldStatus, args.playerId, user)
       } else {
@@ -200,12 +203,18 @@ async function fetchUserByToken(
 // Function to handle solo game
 async function handleSoloEndGame(
   ctx: MutationCtx,
-  worldStatusId: Id<'worldStatus'>,
-  worldId: Id<'worlds'>
+  worldStatus: Doc<'worldStatus'>,
 ) {
   console.log(`Human Defeat! Stopping engine...`);
-  await ctx.db.patch(worldStatusId, { status: STATUS_STOPPED_BY_HUMAN_CAUGHT });
-  await stopEngine(ctx, worldId);
+  const userStatus = worldStatus.userStatus?.map(
+    (u) => ({ userId: u.userId, status: STATUS_LOST_REPORTED as StatusType }),
+  );
+
+  await ctx.db.patch(worldStatus._id, {
+      status: STATUS_STOPPED_BY_HUMAN_CAUGHT,
+      userStatus: userStatus,
+  });
+  await stopEngine(ctx, worldStatus.worldId);
 }
 
 // Function to handle game with two humans
@@ -273,7 +282,7 @@ export async function checkGameEndingConditions(
     // game is over
     if (worldStatus.isSoloGame) {
       // solo game
-      await handleSoloEndGame(ctx, worldStatus._id, worldId);
+      await handleSoloEndGame(ctx, worldStatus);
     } else {
       // multi game
       await handleMultiEndGame(ctx, players, worldStatus);

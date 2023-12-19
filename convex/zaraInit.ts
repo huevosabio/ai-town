@@ -7,7 +7,7 @@ import { createWorld, shouldCreateAgents} from './init';
 import { createEngine, stopEngine } from './aiTown/main';
 import { insertInput } from './aiTown/insertInput';
 
-export const multiplayerInit = mutation({
+export const initGame = mutation({
   args: {
     numAgents: v.optional(v.number()),
     partyId: v.id('parties'),
@@ -127,7 +127,7 @@ export const multiplayerInit = mutation({
       userStatus: party.users.map(
         (userId) => ({userId: userId, status: 'playing' as const}),
       ),
-      isSoloGame: false,
+      isSoloGame: party.users.length === 1 ? true : false,
     });
   },
 });

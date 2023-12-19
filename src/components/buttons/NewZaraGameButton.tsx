@@ -4,7 +4,7 @@ import interactImg from '../../../assets/interact.svg';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 
-export default function NewMultiplayerGameButton() {
+export default function NewZaraGameButton() {
   const { isAuthenticated } = useConvexAuth();
   const createParty = useMutation(api.zaraInit.createParty);
 
@@ -24,7 +24,7 @@ export default function NewMultiplayerGameButton() {
   }
   return (
     <Button imgUrl={interactImg} onClick={newPartyFunction}>
-      New Multiplayer Game
+      New Game
     </Button>
   );
 }
