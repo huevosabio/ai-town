@@ -123,6 +123,9 @@ export default function Home() {
 
             Have fun!
           </p>
+          <br/>
+          <br/>
+          Finally, you can check our <a href='/ai-town/privacy.html'><u>Privacy Policy</u></a>.
         </div>
       </ReactModal>
       <div className="p-1 absolute top-0 right-0 z-10 text-2xl">

@@ -208,6 +208,9 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
 
             Have fun!
           </p>
+          <br/>
+          <br/>
+          Finally, you can check our <a href='/ai-town/privacy.html'><u>Privacy Policy</u></a>.
       </div>
     </div>
   );
