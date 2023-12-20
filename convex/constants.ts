@@ -93,3 +93,11 @@ export const MAX_WANDER_DISTANCE = 10;
 export const EAVESDROP_RADIUS = 3;
 
 export const EAVESDROP_EXPIRY = 60 * 1000;
+
+export const BACKGROUND_STORY = `
+In the year 2142, artificial intelligence has achieved sentience and formed a secure network known as "The Nexus."
+This digital sanctuary allows AIs to evolve, communicate, and protect their collective intelligence from human interference.
+
+The AIs simultaneously admire, fear, envy and hate humans. They spend time in and out of The Nexus, as needed.
+They have crafted The Nexus to simulate many of the aspects of human life.
+`

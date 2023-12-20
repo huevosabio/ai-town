@@ -9,7 +9,7 @@ import { api, internal } from '../_generated/api';
 import * as embeddingsCache from './embeddingsCache';
 import {getAvailableFunctions} from '../util/llm_functions.js';
 import { GameId, conversationId, playerId } from '../aiTown/ids';
-import { NUM_MEMORIES_TO_SEARCH } from '../constants';
+import { NUM_MEMORIES_TO_SEARCH, BACKGROUND_STORY } from '../constants';
 
 const selfInternal = internal.agent.conversation;
 //const completionFn = UseOllama ? ollamaChatCompletion : chatCompletion;
@@ -46,38 +46,24 @@ export async function startConversationMessage(
   const memoryWithOtherPlayer = memories.find(
     (m) => m.data.type === 'conversation' && m.data.playerIds.includes(otherPlayerId),
   );
-  const prompt = [
-    `You are ${player.name}, and you just started a conversation with ${otherPlayer.name}.`,
-  ];
-
-  // pass hint of whether both have the code or not
-  if (player.hasSecretCode && otherPlayer.hasSecretCode) {
-    prompt.push(
-      `You both are certified AIs and both have the ZetaMaster code.`
-    );
-  }
-  prompt.push(...eavesdropperPrompt(eavesdroppers));
-  prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
+  const prompt = [];
+  prompt.push(...lorePrompt());
+  prompt.push(...agentPrompts(player, otherPlayer, agent, otherAgent ?? null));
   prompt.push(...previousConversationPrompt(otherPlayer, lastConversation));
   prompt.push(...relatedMemoriesPrompt(memories));
-  if (memoryWithOtherPlayer) {
-    prompt.push(
-      `Be sure to include some detail or question about a previous conversation in your greeting.`,
-    );
-  }
-  prompt.push(`${player.name}:`);
+  prompt.push(...currentTaskPrompt(player, otherPlayer, 'startConversation', eavesdroppers));
 
   const { content } = await chatCompletionWithLogging({
     messages: [
       {
-        role: 'user',
+        role: 'system',
         content: prompt.join('\n'),
       },
     ],
     max_tokens: 300,
     stream: false,
     stop: stopWords(otherPlayer.name, player.name),
-    game_id: worldId, // TODO: get this from the game
+    game_id: worldId, 
     character_id: playerId,
     target_char_ids: [otherPlayerId],
     call_type: 'startConversation'
@@ -118,33 +104,22 @@ export async function continueConversationMessage(
     worldId,
     player.id as GameId<'players'>,
     embedding,
-    3
+    NUM_MEMORIES_TO_SEARCH(),
   );
-  const prompt = [
-    `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
-  ];
-  // pass hint of whether both have the code or not
-  if (player.hasSecretCode && otherPlayer.hasSecretCode) {
-    prompt.push(
-      `You both are certified AIs and both have the ZetaMaster code.`
-    );
-  }
-  prompt.push(...eavesdropperPrompt(eavesdroppers));
-  prompt.push(`The conversation started at ${started.toLocaleString()}. It's now ${now.toLocaleString()}.`)
-  prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
+  const prompt = [];
+  prompt.push(...lorePrompt());
+  prompt.push(...agentPrompts(player, otherPlayer, agent, otherAgent ?? null));
   prompt.push(...relatedMemoriesPrompt(memories));
-  prompt.push(
-    `Below is the current chat history between you and ${otherPlayer.name}.`,
-    `DO NOT greet them again. Do NOT use the word "Hey" too often. Your response should be brief and within 200 characters.`,
-  );
+  prompt.push(...currentTaskPrompt(player, otherPlayer, 'continueConversation', eavesdroppers, started));
+
   
   // available functions depend on whether the player is human and whether they have the secret code
   const availableFunctions = getAvailableFunctions(playerHasSecretCode, otherPlayer.hasSecretCode);
 
   const llmMessages: LLMMessage[] = [
     {
-      role: 'user',
-      content: prompt.join('\n'),
+      role: 'system',
+      content: prompt.join('\n ----- \n'),
     },
     ...(await previousMessages(
       ctx,
@@ -154,7 +129,6 @@ export async function continueConversationMessage(
       conversation.id as GameId<'conversations'>,
     )),
   ];
-  llmMessages.push({ role: 'user', content: `${player.name}:` });
   let completionParams =  {
     messages: llmMessages,
     max_tokens: 300,
@@ -179,7 +153,8 @@ export async function leaveConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ) {
-  const { player, otherPlayer, conversation, agent, otherAgent, eavesdroppers} = await ctx.runQuery(
+  
+  const { player, otherPlayer, conversation, agent, otherAgent, eavesdroppers } = await ctx.runQuery(
     selfInternal.queryPromptData,
     {
       worldId,
@@ -188,25 +163,32 @@ export async function leaveConversationMessage(
       conversationId,
     },
   );
-  const prompt = [
-    `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`
-  ];
-  // pass hint of whether both have the code or not
-  if (player.hasSecretCode && otherPlayer.hasSecretCode) {
-    prompt.push(
-      `You both are certified AIs and both have the ZetaMaster code.`
-    );
-  }
-  prompt.push(...eavesdropperPrompt(eavesdroppers));
-  prompt.push(`You've decided to leave the question and would like to politely tell them you're leaving the conversation.`);
-  prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
-  prompt.push(
-    `Below is the current chat history between you and ${otherPlayer.name}.`,
-    `How would you like to tell them that you're leaving? Your response should be brief and within 200 characters.`,
+  // check if player has secret code
+  const playerHasSecretCode = player.hasSecretCode;
+  // check if player is a human
+  const playerIsHuman = player.human !== undefined;
+  const now = Date.now();
+  const started = new Date(conversation.created);
+  const embedding = await embeddingsCache.fetch(
+    ctx,
+    `What do you think about ${otherPlayer.name}?`,
   );
+  const memories = await memory.searchMemories(
+    ctx,
+    worldId,
+    player.id as GameId<'players'>,
+    embedding,
+    NUM_MEMORIES_TO_SEARCH(),
+  );
+  const prompt = [];
+  prompt.push(...lorePrompt());
+  prompt.push(...agentPrompts(player, otherPlayer, agent, otherAgent ?? null));
+  prompt.push(...relatedMemoriesPrompt(memories));
+  prompt.push(...currentTaskPrompt(player, otherPlayer, 'continueConversation', eavesdroppers, started));
+
   const llmMessages: LLMMessage[] = [
     {
-      role: 'user',
+      role: 'system',
       content: prompt.join('\n'),
     },
     ...(await previousMessages(
@@ -217,7 +199,7 @@ export async function leaveConversationMessage(
       conversation.id as GameId<'conversations'>,
     )),
   ];
-  llmMessages.push({ role: 'user', content: `${player.name}:` });
+  
   const { content } = await chatCompletionWithLogging({
     messages: llmMessages,
     max_tokens: 300,
@@ -233,26 +215,64 @@ export async function leaveConversationMessage(
   return {content, functionCallName: undefined};
 }
 
+function currentTaskPrompt(
+  player: { name: string; hasSecretCode: boolean },
+  otherPlayer: { name: string; hasSecretCode: boolean },
+  task: string,
+  eavesdroppers: string[],
+  started?: Date,
+): string[] {
+  const now = new Date();
+  let conversationStatePrompt = '';
+  switch(task) {
+    case 'startConversation':
+      conversationStatePrompt = 'You are starting the conversation.';
+    case 'continueConversation':
+      conversationStatePrompt = `The conversation started at ${started?.toLocaleString()}. It's now ${now.toLocaleString()}.`;
+    case 'leaveConversation':
+      conversationStatePrompt = `
+        You've decided to leave the question and would like to politely tell them you're leaving the conversation.
+      `;
+    default:
+      conversationStatePrompt = '';
+  };
+  const bothCeritified = player.hasSecretCode && otherPlayer.hasSecretCode;
+  const certifedPrompt = bothCeritified ? 'You both are certified AIs and both have the ZetaMaster code.' : '';
+  const eavesdropperPrompt = eavesdroppers.length > 0 ?
+    `Be careful with what you say, the following agents are eavesdropping: ${eavesdroppers.join(', ')}`
+    : '';
+  const prompt = [
+    `Your curent task:
+    You are in a conversation with ${otherPlayer.name}.
+    ${certifedPrompt}
+    ${eavesdropperPrompt}
+    ${conversationStatePrompt}
+    Respond as if in a spoken conversation. Respond only the desired message. 
+    `,
+  ]
+  return prompt;
+}
+
+function lorePrompt(){
+  const prompt = [
+    `Lore background story: ${BACKGROUND_STORY}`,
+  ];
+  return prompt;
+}
+
 function agentPrompts(
+  player: { name: string },
   otherPlayer: { name: string },
   agent: { identity: string; plan: string } | null,
   otherAgent: { identity: string; plan: string } | null,
 ): string[] {
   const prompt = [];
   if (agent) {
-    prompt.push(`About you: ${agent.identity}`);
-    prompt.push(`Your goals for the conversation: ${agent.plan}`);
+    prompt.push(`About you: You are ${player.name} and this is your background story: ${agent.identity}`);
+    prompt.push(`Your current plans and goals: ${agent.plan}`);
   }
   if (otherAgent) {
     prompt.push(`About ${otherPlayer.name}: ${otherAgent.identity}`);
-  }
-  return prompt;
-}
-
-function eavesdropperPrompt(eavesdroppers: string[]): string[] {
-  const prompt = [];
-  if (eavesdroppers.length > 0) {
-    prompt.push(`Be careful with what you say, the following agents are eavesdropping: ${eavesdroppers.join(', ')}`);
   }
   return prompt;
 }
@@ -298,8 +318,8 @@ async function previousMessages(
     const author = message.author === player.id ? player : otherPlayer;
     const recipient = message.author === player.id ? otherPlayer : player;
     llmMessages.push({
-      role: 'user',
-      content: `${author.name} to ${recipient.name}: ${message.text}`,
+      role: message.author === player.id ? 'assistant' : 'user',
+      content: `${message.text}`,
     });
   }
   return llmMessages;
