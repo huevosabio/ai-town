@@ -1,5 +1,11 @@
 ## This is Ramon's log
 
+- [2023-12-20 10:06:21] I have done a handful of things the last day or so:
+  - every world can be traced to a user, in fact I've merged how multi and solo game plays are handled
+  - added instructions in the lobby which is now presented to both type of games
+  - switched to elevenlabs
+  - set the prod clerk stuff (but outside the repo)
+  - when an agent is not available for conversation it shows its status
 - [2023-12-18 14:53:49] I noticed that for solo games there is no way to link a game to a user once its over! This is unacceptable! So I shall add this to the schema
   - I think the solution is to migrate the solo stuff to multiplayer; that way every game has a userStatus [done]
 - [2023-12-18 13:48:50] I added function call field for the logger; going to make the changes to pass that from here [done]
