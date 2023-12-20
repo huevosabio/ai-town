@@ -181,6 +181,7 @@ export default function Lobby({setActiveLobby}: {setActiveLobby: (active: boolea
           <p>
             Log in to play. You can move around the map by clicking and your avatar will move in that direction.
           </p>
+          <p>At least one of the characters has the ZetaMaster code, but you don't know which. It is your job to find it and obtain it.</p>
           <p className="mt-4">
             To talk to an entity, click on them and then click "Start conversation," which will ask
             them to start walking towards you. Once they're nearby, the conversation will start, and

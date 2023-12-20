@@ -47,7 +47,6 @@ export const chatCompletionWithLogging = async (params: chatCompletionWithLoggin
     functionCallName = functionCall.name;
     responseContent = functionCall.message;
     logged_response_content = responseContent;
-    console.log('function called!: ', functionCallName);
   }
 
   const logPayload = {

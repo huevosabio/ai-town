@@ -69,7 +69,6 @@ export const callLlmService = async (payload: LLMCallLog) => {
   const headers = {
     'Content-Type': 'application/json',
   };
-  console.log(JSON.stringify(payload));
   const response = await fetch(url, {
     method: 'POST',
     headers,
