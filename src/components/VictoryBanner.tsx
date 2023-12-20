@@ -23,47 +23,49 @@ const VictoryBanner: React.FC<VictoryBannerProps> = ({ gameStatus }) => {
 
   let gameOverBanner = null;
   let subtext = null;
-  if (gameStatus.isSoloGame) {
-    if (gameStatus.status === 'stoppedByHumanVictory') {
-      gameOverBanner = 'Human wins!';
-      subtext = 'You got the code!';
-      sound.play('victory');
-    } else if (gameStatus.status === 'stoppedByHumanCaught') {
-      gameOverBanner = 'AI wins!';
-      subtext = 'You were caught!';
-    } else {
-      return null;
-    }
-  } else {
-    switch (userStatus) {
-      case 'lost-reported': 
-        gameOverBanner = 'You lost!';
-        subtext = 'You were caught!';
-        break;
-      case 'lost-left': 
-        gameOverBanner = 'You lost!';
-        subtext = 'You left the game due to idleness';
-        sound.play('defeat');
-        break;
-      case 'lost-other-won': 
-        gameOverBanner = 'You lost!';
-        subtext = 'The other player got the code!';
-        sound.play('defeat');
-        break;
-      case 'won-code':
-        gameOverBanner = 'You won!';
+  if (soundAdded) {
+    if (gameStatus.isSoloGame) {
+      if (gameStatus.status === 'stoppedByHumanVictory') {
+        gameOverBanner = 'Human wins!';
         subtext = 'You got the code!';
         sound.play('victory');
-        break;
-      case 'won-last-human': 
-        gameOverBanner = 'You won!';
-        subtext = 'You are the last human remaining!';
-        sound.play('victory');
-        break;
-      case 'playing':
+      } else if (gameStatus.status === 'stoppedByHumanCaught') {
+        gameOverBanner = 'AI wins!';
+        subtext = 'You were caught!';
+      } else {
         return null;
-      default:
-        return null;
+      }
+    } else {
+      switch (userStatus) {
+        case 'lost-reported': 
+          gameOverBanner = 'You lost!';
+          subtext = 'You were caught!';
+          break;
+        case 'lost-left': 
+          gameOverBanner = 'You lost!';
+          subtext = 'You left the game due to idleness';
+          sound.play('defeat');
+          break;
+        case 'lost-other-won': 
+          gameOverBanner = 'You lost!';
+          subtext = 'The other player got the code!';
+          sound.play('defeat');
+          break;
+        case 'won-code':
+          gameOverBanner = 'You won!';
+          subtext = 'You got the code!';
+          sound.play('victory');
+          break;
+        case 'won-last-human': 
+          gameOverBanner = 'You won!';
+          subtext = 'You are the last human remaining!';
+          sound.play('victory');
+          break;
+        case 'playing':
+          return null;
+        default:
+          return null;
+      }
     }
   }
 

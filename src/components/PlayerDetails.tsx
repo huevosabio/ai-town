@@ -250,6 +250,11 @@ export default function PlayerDetails({
           <h2 className="bg-brown-700 text-lg text-center">In conversation with {otherPlayerDescription?.name}</h2>
         </div>
       )}
+      {!isMe && !sameConversation && playerConversation && playerStatus?.kind !== 'participating' && (
+        <div className="box">
+          <h2 className="bg-brown-700 text-lg text-center">Walking towards {otherPlayerDescription?.name}</h2>
+        </div>
+      )}
       {!isMe && playerConversation && playerStatus?.kind === 'participating' && (
         <>
           <Messages
