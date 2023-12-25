@@ -78,7 +78,7 @@ export const MEMORY_LOOKBACK = 10;
 
 export const DEFAULT_NUM_AGENTS = 4;
 
-export const AGENTS_PER_PLAYER = 3;
+export const AGENTS_PER_PLAYER = 6;
 
 export const CODES_PER_PLAYER = 1;
 

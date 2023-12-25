@@ -72,6 +72,8 @@ export default function Home() {
         ariaHideApp={false}
       >
         <div className="font-body text-xs sm:text-sm md:text-md">
+        <b>Update: </b> I have swapped the model to GPT-3.5 while I secure more credits/funding for GPT-4 or a worthwhile replacement.
+        Sadly, GPT-3.5 is not as good and the game is actually easier. Thanks for understanding!
         <h1 className="text-center text-xl sm:text-2xl md:text-4xl font-bold font-display game-title">Background</h1>
           <p>
           In the year 2142, artificial intelligence has achieved sentience and formed a secure network known as "The Nexus."
